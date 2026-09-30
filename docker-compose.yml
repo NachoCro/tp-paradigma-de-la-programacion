@@ -1,0 +1,28 @@
+# SQL Server para el trabajo práctico.
+#
+# Levanta la instancia en el puerto 1433 de localhost, que es exactamente lo
+# que dice la cadena de conexión de TPSocios/App.config.
+#
+# Para iniciarla:   docker compose up -d
+# Para detenerla:   docker compose down
+# Para verla:       docker compose logs -f
+#
+# La contraseña del usuario sa debe ser igual en los dos lugares:
+#   - variable MSSQL_SA_PASSWORD (este archivo)
+#   - atributo Password de la cadena de conexión (App.config)
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: tpsocios-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Password123!"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - tpsocios-datos:/var/opt/mssql
+    restart: unless-stopped
+
+volumes:
+  tpsocios-datos:

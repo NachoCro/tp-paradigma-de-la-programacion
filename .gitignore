@@ -1,0 +1,27 @@
+## Visual Studio / .NET
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+## NuGet
+*.nupkg
+packages/
+
+## Material de catedra (no versionar)
+*.pdf
+
+## Instaladores
+vs_SSMS.exe
+*.msi
+*.exe
+!*.exe.config
+
+## Sistema
+Thumbs.db
+desktop.ini
+.DS_Store
