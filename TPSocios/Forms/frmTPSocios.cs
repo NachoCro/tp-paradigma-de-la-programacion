@@ -1,4 +1,6 @@
 using TPSocios.Entidades;
+using TPSocios.Presentacion.Animaciones;
+using TPSocios.Presentacion.Temas;
 using TPSocios.Repositorios;
 
 namespace TPSocios.Forms
@@ -6,20 +8,52 @@ namespace TPSocios.Forms
     /// <summary>
     /// Formulario único del trabajo práctico.
     /// Concentra las cuatro operaciones del CRUD sobre la tabla Socios:
-    /// alta (btnRegistrar sin socio seleccionado), modificación (btnRegistrar
-    /// con una fila de la grilla seleccionada) y baja (tecla Supr sobre la fila
-    /// seleccionada). También realiza todas las validaciones, tal como pide
+    /// alta y modificación (btnRegistrar, cuyo texto y operación dependen del
+    /// modo en que esté el formulario) y baja (tecla Supr sobre la fila
+    /// seleccionada de la grilla).
+    /// También realiza todas las validaciones, tal como pide
     /// el enunciado, para que los repositorios no tengan que repetirlas.
     /// </summary>
     public partial class frmTPSocios : Form
     {
         private const string TituloVentana = "Club Social Deportivo";
-        private const string TextoBotonAlta = "Registrar";
-        private const string TextoBotonModificacion = "Actualizar";
+        private const string TextoCamposIncorrectos = "CAMPOS INCORRECTOS";
+        private const string TextoBotonRegistrar = "Registrar";
+        private const string TextoBotonActualizar = "Actualizar";
 
         private readonly ISocioRepository _socioRepository;
         private List<Socio> _sociosCargados;
         private Socio? _socioEnEdicion;
+
+        /// <summary>
+        /// Ignora las selección automáticas de la grilla hasta que la ventana
+        /// esté visible, para que el formulario abra siempre en modo alta.
+        /// </summary>
+        private bool _ignorandoSeleccionInicial = true;
+
+        /// <summary>Tema retro que se está mostrando.</summary>
+        private TipoTema _tipoTema = TipoTema.Oscuro;
+
+        /// <summary>Motivo concreto del error, que se muestra al terminar la animación.</summary>
+        private string? _mensajeErrorPendiente;
+
+        /// <summary>Control que produjo el error, al que se devuelve el foco.</summary>
+        private Control? _controlErrorPendiente;
+
+        /// <summary>Animación de la explosión de letras, en caso de que esté en curso.</summary>
+        private Task _animacionErrorEnCurso = Task.CompletedTask;
+
+        /// <summary>Tema que se está mostrando, para las pruebas.</summary>
+        internal TipoTema TipoTemaActual => this._tipoTema;
+
+        /// <summary>Texto de la animación de error, para las pruebas.</summary>
+        internal string MensajeErrorAnimado => this.explosionErrores.Mensaje;
+
+        /// <summary>Indica si la explosión de letras sigue en marcha.</summary>
+        internal bool AnimacionErrorEnCurso => this.explosionErrores.AnimacionEnCurso;
+
+        /// <summary>Pasos simulados en la última explosión, para las pruebas.</summary>
+        internal int PasosExplosion => this.explosionErrores.PasosSimulados;
 
         /// <summary>
         /// El repositorio se recibe por inyección de dependencias desde Program,
@@ -32,6 +66,7 @@ namespace TPSocios.Forms
             this._socioRepository = socioRepository;
             this._sociosCargados = new List<Socio>();
             this._socioEnEdicion = null;
+            this._ignorandoSeleccionInicial = true;
         }
 
         /// <summary>
@@ -53,6 +88,8 @@ namespace TPSocios.Forms
         /// </summary>
         internal void ConfigurarFormulario()
         {
+            this.AplicarTemaActual();
+
             this.CargarTiposSocio();
             this.ConfigurarGrilla();
 
@@ -61,6 +98,32 @@ namespace TPSocios.Forms
 
             this.PrepararAlta();
         }
+
+        /// <summary>
+        /// Pinta el formulario con el tema activo. Se invoca al abrir la
+        /// ventana y cada vez que se alterna el tema con Ctrl+D.
+        /// </summary>
+        internal void AplicarTemaActual()
+        {
+            Tema tema = Temas.Obtener(this._tipoTema);
+
+            AplicadorTema.Aplicar(this, tema);
+
+            this.lblAyuda.ForeColor = tema.TextoTenue;
+            this.lblIntegrantes.ForeColor = tema.TextoTenue;
+        }
+
+        /// <summary>
+        /// Cambia entre el tema retro oscuro y el claro, con Ctrl+D.
+        /// </summary>
+        internal void CambiarTema()
+        {
+            this._tipoTema = Temas.Alternar(this._tipoTema);
+            this.AplicarTemaActual();
+        }
+
+        /// <summary>Alterna el tema al pulsar el botón.</summary>
+
 
         /// <summary>
         /// Carga el ComboBox con las opciones de tipo de socio admitidas.
@@ -74,9 +137,9 @@ namespace TPSocios.Forms
             this.cmbTipoSocio.ValueMember = nameof(ItemTipoSocio.Tipo);
             this.cmbTipoSocio.DataSource = new List<ItemTipoSocio>
             {
-                new(TipoSocio.Menor, "Menor (menos de 18 años)"),
-                new(TipoSocio.Mayor, "Mayor (de 18 a menos de 60 años)"),
-                new(TipoSocio.Jubilado, "Jubilado (60 años o más)"),
+                new(TipoSocio.Menor, "Menor (< 18 años)"),
+                new(TipoSocio.Mayor, "Mayor (>= 18 y < 60)"),
+                new(TipoSocio.Jubilado, "Jubilado (>= 60)"),
                 new(TipoSocio.Familiar, "Familiar (sin restricción)")
             };
 
@@ -135,15 +198,33 @@ namespace TPSocios.Forms
         /// </summary>
         private async Task CargarGrillaAsync()
         {
+            List<Socio> socios;
+
             try
             {
-                this._sociosCargados = await this._socioRepository.ObtenerTodosAsync();
+                socios = await this._socioRepository.ObtenerTodosAsync();
             }
             catch (Exception excepcion)
             {
-                this._sociosCargados = new List<Socio>();
+                socios = new List<Socio>();
                 this.MostrarErrorBase(excepcion, "No se pudo obtener el listado de socios.");
             }
+
+            this.CargarGrilla(socios);
+        }
+
+        /// <summary>
+        /// Presenta en la grilla la lista de socios recibida.
+        /// </summary>
+        internal void CargarGrilla(IList<Socio> socios)
+        {
+            this._sociosCargados = new List<Socio>(socios);
+
+            // Poblarse la grilla y elegir una fila van de la mano: al agregar
+            // filas, ella sola fija una celda actual. Mientras se repuebla, esas
+            // selecciones automáticas se ignoran; recién cuando el formulario
+            // da por terminada la carga se las adjudica al usuario.
+            this._ignorandoSeleccionInicial = true;
 
             this.dgvSocios.SuspendLayout();
 
@@ -170,21 +251,30 @@ namespace TPSocios.Forms
 
             this.dgvSocios.ResumeLayout();
 
-            // La grilla se presenta sin ninguna fila elegida: el formulario
-            // queda en modo alta y no se modifica ningún socio por accidente.
-            if (this.dgvSocios.Rows.Count > 0)
-            {
-                this.dgvSocios.CurrentCell = null;
-                this.dgvSocios.ClearSelection();
-            }
+            // Mientras se cargan las filas, las selecciones automáticas de la
+            // grilla se ignoran, para que el formulario no termine cargado con
+            // un socio que el usuario nunca eligió.
+            this.PrepararAlta();
+            this.ProgramarHabilitarSeleccion();
         }
 
         /// <summary>
         /// Al seleccionar una fila de la grilla se cargan sus datos en los
-        /// controles para poder modificarlos, y el botón pasa a "Actualizar".
+        /// controles para poder modificarlos.
         /// </summary>
-        private void dgvSocios_SelectionChanged(object sender, EventArgs e)
+        private void dgvSocios_SelectionChanged(object? sender, EventArgs e)
         {
+            // Al terminar de cargar los datos, la grilla fija sola una celda
+            // actual. Si esa celda se tomara como una elección del usuario, el
+            // formulario abriría cargado con un socio que nadie seleccionó y
+            // habilitaría la modificación sobre un socio que el usuario jamás
+            // eligió. Hasta que la ventana esté visible se ignoran las
+            // selecciones automáticas.
+            if (this._ignorandoSeleccionInicial)
+            {
+                return;
+            }
+
             Socio? socio = this.ObtenerSocioSeleccionado();
 
             if (socio is null)
@@ -192,6 +282,15 @@ namespace TPSocios.Forms
                 return;
             }
 
+            this.CargarSocioEnEdicion(socio);
+        }
+
+        /// <summary>
+        /// Presenta en los controles los datos del socio elegido en la grilla
+        /// y pasa el formulario al modo de modificación.
+        /// </summary>
+        internal void CargarSocioEnEdicion(Socio socio)
+        {
             this._socioEnEdicion = socio;
 
             this.mtxtLegajoSocio.Text = socio.LegajoSocio;
@@ -203,9 +302,70 @@ namespace TPSocios.Forms
             this.cmbTipoSocio.SelectedValue = socio.TipoSocio;
             this.chkDisponible.Checked = socio.Disponible;
 
-            this.btnRegistrar.Text = TextoBotonModificacion;
+            this.BotonesSegunElModo();
             this.mtxtLegajoSocio.Focus();
             this.mtxtLegajoSocio.SelectAll();
+        }
+
+        /// <summary>
+        /// Ajusta el texto de btnRegistrar al modo en curso: "Registrar" en
+        /// alta y "Actualizar" en modificación. El botón es el mismo en los dos
+        /// casos, tal como pide el enunciado, y la tecla Enter siempre lo
+        /// confirma porque es el AcceptButton del formulario.
+        /// </summary>
+        private void BotonesSegunElModo()
+        {
+            bool alta = this._socioEnEdicion is null;
+
+            this.btnRegistrar.Text = alta ? TextoBotonRegistrar : TextoBotonActualizar;
+        }
+
+        /// <summary>
+        /// Programa el momento en que las elecciones de la grilla pasan a
+        /// atribuirse al usuario.
+        /// </summary>
+        private void ProgramarHabilitarSeleccion()
+        {
+            if (!this.IsHandleCreated)
+            {
+                this.AlMostrarLaVentana();
+                return;
+            }
+
+            // Se difiere un turno a propósito. Al agregar filas, la grilla fija
+            // su celda actual después, mientras se dibuja. Si la selección
+            // quedara habilitada en el acto, esa celda automática cargaría en
+            // el formulario un socio que el usuario nunca eligió.
+            this.BeginInvoke(new Action(this.AlMostrarLaVentana));
+        }
+
+        /// <summary>
+        /// Si todavía se están ignorando las selecciones automáticas de la
+        /// grilla. Lo consultan las pruebas.
+        /// </summary>
+        internal bool IgnoraSeleccionInicial => this._ignorandoSeleccionInicial;
+
+        /// <summary>Cantidad de socios que la grilla tiene en memoria.</summary>
+        internal int SociosCargados => this._sociosCargados.Count;
+
+
+        /// <summary>
+        /// Deja la grilla sin fila elegida y pasa a atribuirle al usuario las
+        /// selecciones que haga de aquí en más. La usan el final de la carga
+        /// y las pruebas.
+        /// </summary>
+        internal void AlMostrarLaVentana()
+        {
+            // Se desengancha el evento para que la limpieza de abajo no se
+            // confunda con una elección.
+            this.dgvSocios.SelectionChanged -= this.dgvSocios_SelectionChanged;
+            this.dgvSocios.CurrentCell = null;
+            this.dgvSocios.ClearSelection();
+            this.dgvSocios.SelectionChanged += this.dgvSocios_SelectionChanged;
+
+            this._ignorandoSeleccionInicial = false;
+
+            this.PrepararAlta();
         }
 
         /// <summary>
@@ -216,6 +376,16 @@ namespace TPSocios.Forms
         /// </summary>
         private async void frmTPSocios_KeyDown(object sender, KeyEventArgs e)
         {
+            // Ctrl+D alterna el tema retro, como atajo del botón.
+            if (e.Control && e.KeyCode == Keys.D)
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+
+                this.CambiarTema();
+                return;
+            }
+
             if (e.KeyCode != Keys.Delete || this.TieneFocoEnCaptura())
             {
                 return;
@@ -276,27 +446,41 @@ namespace TPSocios.Forms
             }
             finally
             {
-                this.btnRegistrar.Enabled = true;
+                this.BotonesSegunElModo();
             }
         }
 
         /// <summary>
-        /// Registra un socio nuevo o, si hay uno seleccionado en la grilla,
-        /// modifica los datos del socio existente.
+        /// Guarda los datos del formulario. El mismo botón atiende las dos
+        /// operaciones: da de alta un socio nuevo si el formulario está en modo
+        /// alta, y actualiza el socio de la fila seleccionada si está en modo
+        /// modificación. El texto del botón indica cuál de las dos corresponde.
         /// </summary>
         private async void btnRegistrar_Click(object sender, EventArgs e)
         {
+            await this.GuardarAsync();
+        }
+
+        /// <summary>
+        /// Valida los datos del formulario y los guarda. La operación que
+        /// corresponde se deduce del modo en que está el formulario: si no hay
+        /// socio en edición se da de alta uno nuevo, y si lo hay se actualiza.
+        /// </summary>
+        private async Task GuardarAsync()
+        {
+            bool esModificacion = this._socioEnEdicion is not null;
+
             if (!this.ValidacionFormulario(out Socio socio))
             {
+                await this.MostrarDetalleErrorAsync();
                 return;
             }
 
             if (!await this.ValidacionReglas(socio))
             {
+                await this.MostrarDetalleErrorAsync();
                 return;
             }
-
-            bool esModificacion = socio.IdSocio > 0;
 
             this.btnRegistrar.Enabled = false;
 
@@ -327,7 +511,7 @@ namespace TPSocios.Forms
             }
             finally
             {
-                this.btnRegistrar.Enabled = true;
+                this.BotonesSegunElModo();
             }
         }
 
@@ -342,10 +526,16 @@ namespace TPSocios.Forms
 
         /// <summary>
         /// Deja el formulario en modo de alta, con los controles vacíos.
+        /// La usan el fin de la carga, el botón Cancelar y las pruebas.
         /// </summary>
-        private void PrepararAlta()
+        internal void PrepararAlta()
         {
             this._socioEnEdicion = null;
+
+            // Sin errores pendientes, el mensaje animado se retira y
+            // vuelve a mostrarse la ayuda de uso de la grilla.
+            this.explosionErrores.Ocultar();
+            this.lblAyuda.Visible = true;
 
             this.mtxtLegajoSocio.Clear();
             this.txtApellido.Clear();
@@ -363,7 +553,7 @@ namespace TPSocios.Forms
                 this.dgvSocios.CurrentCell = null;
             }
 
-            this.btnRegistrar.Text = TextoBotonAlta;
+            this.BotonesSegunElModo();
             this.mtxtLegajoSocio.Focus();
         }
 
@@ -539,14 +729,58 @@ namespace TPSocios.Forms
         }
 
         /// <summary>
-        /// Presenta el error, lleva el foco al control causante y devuelve false
-        /// para interrumpir el proceso de alta o modificación.
+        /// Deja constancia del error, agita el control causante y lanza la
+        /// explosión de letras. No interrumpe con un MessageBox en el momento:
+        /// el aviso primero se ve en pantalla y recién después se detalla
+        /// el motivo, para que la explicación no tape la animación.
+        /// Devuelve false para interrumpir el alta o la modificación.
         /// </summary>
         private bool MarcarError(Control control, string mensaje)
         {
-            MessageBox.Show(mensaje, "Datos inválidos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            control.Focus();
+            this._mensajeErrorPendiente = mensaje;
+            this._controlErrorPendiente = control;
+
+            Sacudidor.Sacudir(control);
+            this._animacionErrorEnCurso = this.ExplorarCamposAsync();
+
             return false;
+        }
+
+        /// <summary>
+        /// Esconde la ayuda y hace explotar las letras del mensaje de error.
+        /// </summary>
+        private async Task ExplorarCamposAsync()
+        {
+            this.lblAyuda.Visible = false;
+
+            await this.explosionErrores.ExplotarAsync(TextoCamposIncorrectos);
+        }
+
+        /// <summary>
+        /// Espera a que termine la explosión y recién entonces muestra el
+        /// motivo concreto del error, y devuelve el foco al control que lo
+        /// produjo. Si el error vino de la base de datos, el MessageBox ya
+        /// fue presentado por <see cref="MostrarErrorBase"/> y aquí no hay
+        /// nada pendiente.
+        /// </summary>
+        private async Task MostrarDetalleErrorAsync()
+        {
+            await this._animacionErrorEnCurso;
+
+            string? mensaje = this._mensajeErrorPendiente;
+            Control? control = this._controlErrorPendiente;
+
+            this._mensajeErrorPendiente = null;
+            this._controlErrorPendiente = null;
+
+            if (mensaje is null)
+            {
+                return;
+            }
+
+            MessageBox.Show(mensaje, "Datos inválidos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+            control?.Focus();
         }
 
         /// <summary>

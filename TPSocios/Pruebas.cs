@@ -1,9 +1,12 @@
 using System.Configuration;
+using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using TPSocios.Configuracion;
 using TPSocios.Datos;
 using TPSocios.Entidades;
 using TPSocios.Forms;
+using TPSocios.Presentacion.Animaciones;
+using TPSocios.Presentacion.Temas;
 using TPSocios.Repositorios;
 
 namespace TPSocios
@@ -28,6 +31,11 @@ namespace TPSocios
             ProbarReglas();
             ProbarFormulario();
             ProbarValidacionFormulario();
+            ProbarBotonUnicoSegunElModo();
+            ProbarAperturaEnModoAlta();
+            ProbarTemas();
+            ProbarAnimacionDeError();
+            ProbarLayoutSinSolapamientos();
 
             Console.WriteLine(_fallos == 0
                 ? "\nTODAS LAS PRUEBAS OK"
@@ -36,14 +44,18 @@ namespace TPSocios
             return _fallos;
         }
 
-        private static void Verificar(string nombre, bool condicion)
+        private static void Verificar(string nombre, bool condicion, string detalle = "")
         {
             if (!condicion)
             {
                 _fallos++;
             }
 
-            Console.WriteLine($"  {(condicion ? "OK   " : "FALLA")}  {nombre}");
+            string texto = condicion
+                ? nombre
+                : (string.IsNullOrEmpty(detalle) ? nombre : $"{nombre} -> {detalle}");
+
+            Console.WriteLine($"  {(condicion ? "OK   " : "FALLA")}  {texto}");
         }
 
         private static void Seccion(string titulo)
@@ -193,11 +205,28 @@ namespace TPSocios
 
             Verificar("Existe btnRegistrar", Buscar("btnRegistrar") is Button);
             Verificar("Existe btnCancelar", Buscar("btnCancelar") is Button);
+
+            // La consigna 2.2 exige exactamente dos botones, con esos nombres.
+            List<Button> botones = BotonesDe(f.Controls).ToList();
+
+            Verificar("El formulario tiene solo dos botones (consigna 2.2)",
+                botones.Count == 2,
+                string.Join(" | ", botones.Select(b => b.Name)));
+
+            Verificar("Los dos botones son btnRegistrar y btnCancelar",
+                botones.Any(b => b.Name == "btnRegistrar")
+                && botones.Any(b => b.Name == "btnCancelar"));
             Verificar("Existe mtxtLegajoSocio (MaskedTextBox)", Buscar("mtxtLegajoSocio") is MaskedTextBox);
             Verificar("Existe dtpFechaNacimiento (DateTimePicker)", Buscar("dtpFechaNacimiento") is DateTimePicker);
             Verificar("Existe cmbTipoSocio (ComboBox)", Buscar("cmbTipoSocio") is ComboBox);
             Verificar("Existe chkDisponible (CheckBox)", Buscar("chkDisponible") is CheckBox);
             Verificar("Existe dgvSocios (DataGridView)", Buscar("dgvSocios") is DataGridView);
+
+            Verificar("La interfaz muestra a los dos integrantes",
+                Buscar("lblIntegrantes") is Label
+                {
+                    Text: "Integrantes: Fabricio Gullino - Ignacio Crocetti"
+                });
 
             Verificar("Máscara del legajo: un carácter, guion y cuatro dígitos",
                 Buscar("mtxtLegajoSocio") is MaskedTextBox { Mask: "?\\-####" });
@@ -236,11 +265,33 @@ namespace TPSocios
                 cmb.DropDownStyle == ComboBoxStyle.DropDownList);
             Verificar("ComboBox con las cuatro opciones", cmb.Items.Count == 4);
             Verificar("Primera opción del ComboBox seleccionada", cmb.SelectedIndex == 0);
-            Verificar("Primera opción: \"Menor (menos de 18 años)\"",
+            // Los textos deben ser los literales de la consigna 2.10.
+            Verificar("Primera opción: \"Menor (< 18 años)\"",
                 cmb.Items[0] is ItemTipoSocio
                 {
                     Tipo: TipoSocio.Menor,
-                    Descripcion: "Menor (menos de 18 años)"
+                    Descripcion: "Menor (< 18 años)"
+                });
+
+            Verificar("Segunda opción: \"Mayor (>= 18 y < 60)\"",
+                cmb.Items[1] is ItemTipoSocio
+                {
+                    Tipo: TipoSocio.Mayor,
+                    Descripcion: "Mayor (>= 18 y < 60)"
+                });
+
+            Verificar("Tercera opción: \"Jubilado (>= 60)\"",
+                cmb.Items[2] is ItemTipoSocio
+                {
+                    Tipo: TipoSocio.Jubilado,
+                    Descripcion: "Jubilado (>= 60)"
+                });
+
+            Verificar("Cuarta opción: \"Familiar (sin restricción)\"",
+                cmb.Items[3] is ItemTipoSocio
+                {
+                    Tipo: TipoSocio.Familiar,
+                    Descripcion: "Familiar (sin restricción)"
                 });
 
             Verificar("La fecha de nacimiento no admite un valor posterior a hoy",
@@ -282,6 +333,361 @@ namespace TPSocios
             Verificar("Cuota convertida a número", socio.CuotaMensual == 9500.50m);
             Verificar("Tipo de socio leído del ComboBox", socio.TipoSocio == TipoSocio.Mayor);
             Verificar("Disponible leído del CheckBox", socio.Disponible);
+        }
+
+        /// <summary>
+        /// Comprueba que ningún control se monte sobre otro. Un arreglo de
+        /// diseño se nota mirando la ventana, pero un chequeo automático
+        /// avisa en el momento en que se rompe.
+        /// </summary>
+        private static void ProbarLayoutSinSolapamientos()
+        {
+            Seccion("Layout sin solapamientos");
+
+            using frmTPSocios f = new frmTPSocios(new SocioRepositoryCSV());
+            f.ConfigurarFormulario();
+            f.CreateControl();
+
+            // Se comparan los controles entre sí solo cuando son hermanos. Un
+            // GroupBox sí contiene a sus campos, así que ellos sí se revisan
+            // entre sí, pero el GroupBox no se compara consigo mismo.
+            List<string> choques = RevisarSolapamientos(f.Controls);
+
+            Verificar("Ningún control se pisa con otro de la misma fila",
+                choques.Count == 0, string.Join(" | ", choques));
+
+            Verificar("La ayuda queda a la izquierda de los botones",
+                f.Controls.Find("lblAyuda", true)[0].Right
+                    < f.Controls.Find("btnRegistrar", true)[0].Left);
+
+            Verificar("El botón Registrar queda a la izquierda de Cancelar",
+                f.Controls.Find("btnRegistrar", true)[0].Right
+                    < f.Controls.Find("btnCancelar", true)[0].Left);
+
+            Verificar("La animación de error no tapa la grilla",
+                f.Controls.Find("explosionErrores", true)[0].Top
+                    > f.Controls.Find("dgvSocios", true)[0].Bottom);
+
+            Verificar("Los integrantes quedan debajo de la ayuda y de los botones",
+                f.Controls.Find("lblIntegrantes", true)[0].Top
+                    > f.Controls.Find("lblAyuda", true)[0].Bottom
+                && f.Controls.Find("lblIntegrantes", true)[0].Top
+                    > f.Controls.Find("btnRegistrar", true)[0].Bottom);
+        }
+
+        /// <summary>
+        /// Devuelve todos los botones del formulario y de sus contenedores.
+        /// Sirve para comprobar que no haya más que los dos que pide la consigna.
+        /// </summary>
+        private static IEnumerable<Button> BotonesDe(Control.ControlCollection controles)
+        {
+            foreach (Control control in controles)
+            {
+                if (control is Button boton)
+                {
+                    yield return boton;
+                }
+
+                foreach (Button anidado in BotonesDe(control.Controls))
+                {
+                    yield return anidado;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Devuelve la lista de controles de un mismo nivel que se superponen.
+        /// Solo compara hermanos: un control jamás se compara con un ancestro
+        /// suyo, porque un GroupBox contiene a sus campos por definición.
+        /// </summary>
+        private static List<string> RevisarSolapamientos(Control.ControlCollection controles)
+        {
+            List<string> choques = [];
+
+            List<(string Nombre, Rectangle R)> hermanos = [];
+
+            foreach (Control control in controles)
+            {
+                hermanos.Add(($"{control.Name} ({control.GetType().Name})", control.Bounds));
+            }
+
+            for (int i = 0; i < hermanos.Count; i++)
+            {
+                for (int j = i + 1; j < hermanos.Count; j++)
+                {
+                    if (hermanos[i].R.Width <= 0 || hermanos[i].R.Height <= 0)
+                    {
+                        continue;
+                    }
+
+                    Rectangle interseccion =
+                        Rectangle.Intersect(hermanos[i].R, hermanos[j].R);
+
+                    if (interseccion.Width > 0 && interseccion.Height > 0)
+                    {
+                        choques.Add(
+                            $"'{hermanos[i].Nombre}' con '{hermanos[j].Nombre}' " +
+                            $"({interseccion.Width}x{interseccion.Height}px)");
+                    }
+                }
+            }
+
+            foreach (Control control in controles)
+            {
+                // La grilla se salta entera: su barra de desplazamiento y sus
+                // celdas se pisan a propósito.
+                if (control is DataGridView)
+                {
+                    continue;
+                }
+
+                choques.AddRange(RevisarSolapamientos(control.Controls));
+            }
+
+            return choques;
+        }
+
+        /// <summary>
+        /// Verifica que el botón único de guardado cambie de texto según el modo
+        /// en curso, para que el usuario sepa si va a dar de alta un socio nuevo
+        /// o a pisar los datos del socio que ya está en la grilla.
+        /// </summary>
+        private static void ProbarBotonUnicoSegunElModo()
+        {
+            Seccion("Botón único de alta y modificación");
+
+            Socio socio = new(1, "A-0001", "Gómez", "Ana", "ana@email.com",
+                DateTime.Today.AddYears(-30), 9000m, TipoSocio.Mayor, true);
+
+            using frmTPSocios f = new frmTPSocios(new RepositorioDePrueba(socio));
+            f.ConfigurarFormulario();
+
+            Button registrar = (Button)f.Controls.Find("btnRegistrar", true)[0];
+            TextBox apellido = (TextBox)f.Controls.Find("txtApellido", true)[0];
+
+            Verificar("En modo alta el botón dice Registrar",
+                registrar.Text == "Registrar", $"texto='{registrar.Text}'");
+
+            Verificar("En modo alta, Enter confirma el alta",
+                ReferenceEquals(f.AcceptButton, registrar));
+
+            f.CargarSocioEnEdicion(socio);
+
+            Verificar("Al elegir una fila se cargan sus datos",
+                apellido.Text == "Gómez", $"apellido='{apellido.Text}'");
+
+            Verificar("En modo modificación el mismo botón dice Actualizar",
+                registrar.Text == "Actualizar", $"texto='{registrar.Text}'");
+
+            Verificar("En modo modificación, Enter confirma la actualización",
+                ReferenceEquals(f.AcceptButton, registrar));
+
+            f.PrepararAlta();
+
+            Verificar("Volver al modo alta restaura el texto Registrar y vacía el formulario",
+                registrar.Text == "Registrar" && apellido.Text.Length == 0,
+                $"texto='{registrar.Text}', apellido='{apellido.Text}'");
+        }
+
+        /// <summary>
+        /// Verifica que la ventana abra en modo alta y no con un socio ya
+        /// cargado. Al agregar filas, la grilla fija sola su celda actual: si
+        /// esa selección automática se tomara por una elección del usuario, el
+        /// formulario abriría listo para modificar al primer socio de la lista
+        /// y la modificación escribiría sobre sus datos.
+        /// </summary>
+        private static void ProbarAperturaEnModoAlta()
+        {
+            Seccion("Apertura en modo alta");
+
+            RepositorioDePrueba repositorio = new(
+                new Socio(1, "A-0001", "Gómez", "Ana", "ana@email.com",
+                    DateTime.Today.AddYears(-30), 9000m, TipoSocio.Mayor, true),
+                new Socio(2, "B-0002", "Sosa", "Beto", "beto@email.com",
+                    DateTime.Today.AddYears(-40), 8000m, TipoSocio.Familiar, false));
+
+            // Se abre la ventana de verdad, con su Load, su carga de datos y
+            // su primer dibujado: es la única forma de reproducir la selección
+            // automática que hace la grilla al poblarse.
+            using frmTPSocios f = new frmTPSocios(repositorio);
+            f.Show();
+
+            for (int i = 0; i < 5; i++)
+            {
+                Application.DoEvents();
+            }
+
+            DataGridView grilla = (DataGridView)f.Controls.Find("dgvSocios", true)[0];
+            TextBox apellido = (TextBox)f.Controls.Find("txtApellido", true)[0];
+            Button boton = (Button)f.Controls.Find("btnRegistrar", true)[0];
+
+            Verificar("La grilla muestra todas las filas", grilla.Rows.Count == 2);
+
+            Verificar("Terminada la carga, las selecciones ya son del usuario",
+                !f.IgnoraSeleccionInicial);
+
+            Verificar("La grilla queda sin fila elegida al abrir",
+                grilla.CurrentRow is null);
+
+            Verificar("La selección automática de la grilla no carga un socio",
+                apellido.Text.Length == 0
+                && boton.Text == "Registrar",
+                $"apellido='{apellido.Text}', botón='{boton.Text}'");
+
+            Verificar("Al abrir el botón de guardado queda habilitado y en modo alta",
+                boton.Enabled && boton.Text == "Registrar");
+
+            Verificar("La ventana queda con los cinco campos vacíos",
+                ((TextBox)f.Controls.Find("txtNombre", true)[0]).Text.Length == 0
+                && ((TextBox)f.Controls.Find("txtEmail", true)[0]).Text.Length == 0
+                && ((TextBox)f.Controls.Find("txtCuotaMensual", true)[0]).Text.Length == 0);
+
+            f.Hide();
+        }
+
+        /// <summary>
+        /// Verifica que los dos temas retro se apliquen de verdad sobre los
+        /// controles y que el botón de alternancia los intercambie.
+        /// </summary>
+        private static void ProbarTemas()
+        {
+            Seccion("Temas retro");
+
+            using frmTPSocios f = new frmTPSocios(new SocioRepositoryCSV());
+            f.ConfigurarFormulario();
+
+            DataGridView grilla = (DataGridView)f.Controls.Find("dgvSocios", true)[0];
+            TextBox apellido = (TextBox)f.Controls.Find("txtApellido", true)[0];
+
+            Verificar("El formulario arranca en el tema oscuro",
+                f.TipoTemaActual == TipoTema.Oscuro);
+
+            Verificar("El fondo oscuro se aplica al formulario",
+                f.BackColor == Temas.Oscuro.Fondo);
+
+            Verificar("El fondo oscuro se aplica a la grilla",
+                grilla.DefaultCellStyle.BackColor == Temas.Oscuro.Fondo);
+
+            Verificar("El color de captura se aplica a los campos",
+                apellido.BackColor == Temas.Oscuro.Superficie);
+
+            Verificar("El texto de los campos toma el verde fósforo",
+                apellido.ForeColor == Temas.Oscuro.Texto);
+
+            Verificar("La cabecera de la grilla toma el color propio del tema",
+                grilla.ColumnHeadersDefaultCellStyle.BackColor == Temas.Oscuro.CabeceraFondo);
+
+            f.CambiarTema();
+
+            Verificar("CambiarTema pasa al tema claro",
+                f.TipoTemaActual == TipoTema.Claro);
+
+            Verificar("El fondo claro se aplica al formulario",
+                f.BackColor == Temas.Claro.Fondo);
+
+            Verificar("El fondo claro se aplica a la grilla",
+                grilla.DefaultCellStyle.BackColor == Temas.Claro.Fondo);
+
+            Verificar("El color de captura cambia con el tema",
+                apellido.BackColor == Temas.Claro.Superficie);
+
+            Verificar("Cambiar de nuevo vuelve al tema oscuro",
+                Temas.Alternar(f.TipoTemaActual) == TipoTema.Oscuro);
+
+            // Las fuentes de los temas viven durante toda la aplicación. Si el
+            // control guardara la instancia compartida y la liberara al
+            // cambiar de tema, el resto de la ventana quedaría con una fuente
+            // destruida.
+            ExplosionTexto letras = (ExplosionTexto)f.Controls.Find("explosionErrores", true)[0];
+
+            Verificar("La animación usa una copia propia de la fuente del tema",
+                letras.Fuente is not null
+                && !ReferenceEquals(letras.Fuente, Temas.Oscuro.FuenteTitulo)
+                && !ReferenceEquals(letras.Fuente, Temas.Claro.FuenteTitulo));
+
+            using frmTPSocios otra = new frmTPSocios(new SocioRepositoryCSV());
+            otra.ConfigurarFormulario();
+            otra.CambiarTema();
+
+            Verificar("Una segunda ventana puede alternar el tema sin fallar",
+                otra.TipoTemaActual == TipoTema.Claro);
+
+            otra.CambiarTema();
+
+            Verificar("Y volver al tema oscuro",
+                otra.TipoTemaActual == TipoTema.Oscuro);
+        }
+
+        /// <summary>
+        /// Verifica la reacción ante un campo incorrecto: el mensaje animado,
+        /// el mensaje de ayuda que se esconde y la sacudida que devuelve el
+        /// control a su posición. Se bombea la cola de mensajes para que
+        /// corran los relojes de la explosión.
+        /// </summary>
+        private static void ProbarAnimacionDeError()
+        {
+            Seccion("Animación de error");
+
+            using frmTPSocios f = new frmTPSocios(new SocioRepositoryCSV());
+            f.ConfigurarFormulario();
+
+            // Los relojes de la animación necesitan que la ventana tenga
+            // ventana creada para poder avanzar.
+            f.CreateControl();
+
+            MaskedTextBox legajo = (MaskedTextBox)f.Controls.Find("mtxtLegajoSocio", true)[0];
+            Label ayuda = (Label)f.Controls.Find("lblAyuda", true)[0];
+
+            Point origen = legajo.Location;
+
+            legajo.Text = "A-00";
+
+            bool valido = f.ValidacionFormulario(out _);
+
+            Verificar("Un legajo incompleto se rechaza", !valido);
+            Verificar("La animación dice CAMPOS INCORRECTOS",
+                f.MensajeErrorAnimado == "CAMPOS INCORRECTOS");
+            Verificar("La explosión de letras arranca",
+                f.AnimacionErrorEnCurso);
+            Verificar("La ayuda se esconde mientras dura el error",
+                !ayuda.Visible);
+
+            // Se mide de verdad cuánto dura: si el resorte queda oscilando, el
+            // usuario tarda una eternidad en ver el motivo del error.
+            Stopwatch reloj = Stopwatch.StartNew();
+
+            DateTime limite = DateTime.UtcNow.AddSeconds(10);
+
+            while (f.AnimacionErrorEnCurso && DateTime.UtcNow < limite)
+            {
+                Application.DoEvents();
+                Thread.Sleep(5);
+            }
+
+            reloj.Stop();
+
+            Console.WriteLine($"        (duración medida: {reloj.ElapsedMilliseconds}ms, {f.PasosExplosion} pasos)");
+
+            Verificar("La explosión de letras se detiene sola",
+                !f.AnimacionErrorEnCurso,
+                $"siguió corriendo {reloj.ElapsedMilliseconds}ms");
+
+            // El piso importa: si las letras se ordenaran en un solo paso el
+            // efecto no se vería y el MessageBox del error lo taparía de una.
+            Verificar("La explosión dura lo suficiente para verse",
+                reloj.ElapsedMilliseconds >= 700,
+                $"duró {reloj.ElapsedMilliseconds}ms");
+
+            Verificar("La explosión dura menos de 2 segundos",
+                reloj.ElapsedMilliseconds < 2000,
+                $"tardó {reloj.ElapsedMilliseconds}ms");
+
+            Verificar("La explosión simula muchos pasos, no uno solo",
+                f.PasosExplosion > 20,
+                $"solo {f.PasosExplosion} pasos");
+
+            Verificar("El campo sacudido vuelve a su posición original",
+                legajo.Location == origen);
         }
 
         /// <summary>
@@ -398,6 +804,46 @@ namespace TPSocios
             catch (AggregateException excepcion) when (excepcion.InnerException is NotImplementedException)
             {
                 return true;
+            }
+        }
+
+        /// <summary>
+        /// Repositorio que devuelve una lista fija, para poder abrir la ventana
+        /// de verdad en las pruebas sin tocar la base de datos.
+        /// </summary>
+        private sealed class RepositorioDePrueba : ISocioRepository
+        {
+            private readonly List<Socio> _socios;
+
+            internal RepositorioDePrueba(params Socio[] socios)
+            {
+                this._socios = [.. socios];
+            }
+
+            public Task<List<Socio>> ObtenerTodosAsync(CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(new List<Socio>(this._socios));
+            }
+
+            public Task<int> InsertarAsync(Socio socio, CancellationToken cancellationToken = default)
+            {
+                throw new NotSupportedException();
+            }
+
+            public Task ActualizarAsync(Socio socio, CancellationToken cancellationToken = default)
+            {
+                throw new NotSupportedException();
+            }
+
+            public Task EliminarAsync(int idSocio, CancellationToken cancellationToken = default)
+            {
+                throw new NotSupportedException();
+            }
+
+            public Task<bool> ExisteLegajoAsync(string legajoSocio, int idSocioExcluir = 0,
+                                                 CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(false);
             }
         }
     }
