@@ -2,12 +2,6 @@ using TPSocios.Entidades;
 
 namespace TPSocios.Repositorios
 {
-    /// <summary>
-    /// Implementación de ISocioRepository sobre un archivo CSV.
-    /// Sus operaciones se encuentran sin desarrollar, tal como pide el
-    /// enunciado: es la contraparte "vacía" frente al repositorio funcional.
-    /// Como la interfaz está completa, esta clase igual debe compilar.
-    /// </summary>
     public class SocioRepositoryCSV : ISocioRepository
     {
         public Task<List<Socio>> ObtenerTodosAsync(CancellationToken cancellationToken = default)

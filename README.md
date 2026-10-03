@@ -102,9 +102,10 @@ docker compose down
 | `TipoSocio` | `nvarchar(20)` | `cmbTipoSocio` |
 | `Activo` | `bit` | `chkDisponible` |
 
-La cadena de conexión vive en `TPSocios/App.config`, dentro de la sección
-`connectionStrings` con el nombre `MiConexion`, para poder cambiar servidor o
-contraseña sin recompilar.
+La cadena de conexión vive en una constante de código,
+`Configuracion/CadenaConexion.cs`, y no en un archivo de configuración: para
+cambiar servidor o contraseña hay que recompilar. A cambio, el ejecutable no
+depende de ningún `.config` externo para conectarse.
 
 ---
 
@@ -139,7 +140,6 @@ TP 1 Socios.pdf                 Enunciado del trabajo práctico
 
 TPSocios/
 ├── TPSocios.csproj
-├── App.config                  Cadena de conexión
 ├── Program.cs                  Contenedor de inyección de dependencias
 ├── Pruebas.cs                  Batería de pruebas automáticas
 ├── Configuracion/
@@ -180,7 +180,7 @@ TPSocios/
 | 3 | Clase encapsulada con dos constructores | `Entidades/Socio.cs` |
 | 4 | Dos repositorios, uno funcional y otro sin implementar | `Repositorios/SocioRepositorySQL.cs`, `Repositorios/SocioRepositoryCSV.cs` |
 | 5 | Interfaz | `Repositorios/ISocioRepository.cs` |
-| 6 | Inyección de dependencias | `Program.cs:30-33`, constructor de `frmTPSocios` |
+| 6 | Inyección de dependencias | `Program.cs:20-22`, constructor de `frmTPSocios` |
 | 7 | Validaciones en la capa UI, en dos funciones | `ValidacionFormulario` y `ValidacionReglas` en `frmTPSocios.cs` |
 | 8 | Tratamiento de operaciones asíncronas | `await using`, `OpenAsync`, `Task` en `Datos/Database.cs` |
 | 9 | `try-catch` | En el formulario y en los repositorios |

@@ -2,18 +2,8 @@ using TPSocios.Presentacion.Animaciones;
 
 namespace TPSocios.Presentacion.Temas
 {
-    /// <summary>
-    /// Aplica un <see cref="Tema"/> sobre el árbol de controles de un formulario.
-    /// Recorre la jerarquía y va reconociendo cada tipo de control por
-    /// polimorfismo, de modo que agregar un control nuevo al Designer no
-    /// obliga a tocar este recorrido.
-    /// </summary>
     internal static class AplicadorTema
     {
-        /// <summary>
-        /// Pinta el formulario completo con la paleta indicada y ajusta la
-        /// tipografía de los controles de captura al estilo monoespaciado.
-        /// </summary>
         internal static void Aplicar(Form formulario, Tema tema)
         {
             formulario.BackColor = tema.Fondo;
@@ -22,9 +12,6 @@ namespace TPSocios.Presentacion.Temas
             Recorrer(formulario, tema);
         }
 
-        /// <summary>
-        /// Aplica el tema al control recibido y después a todos sus hijos.
-        /// </summary>
         private static void Recorrer(Control control, Tema tema)
         {
             switch (control)
@@ -67,9 +54,6 @@ namespace TPSocios.Presentacion.Temas
                     break;
 
                 case CheckBox check:
-                    // No se le cambia la tipografía: el CheckBox ajusta su
-                    // ancho al texto, y una fuente más ancha lo corría contra
-                    // el botón de cambio de tema.
                     check.ForeColor = tema.Texto;
                     check.BackColor = Color.Transparent;
                     break;
@@ -89,10 +73,6 @@ namespace TPSocios.Presentacion.Temas
             }
         }
 
-        /// <summary>
-        /// Los botones quedan planos, con un borde marcado del color de acento,
-        /// que es lo que da el aspecto de teclas de una terminal antigua.
-        /// </summary>
         private static void AplicarBoton(Button boton, Tema tema)
         {
             boton.BackColor = tema.Panel;
@@ -105,11 +85,6 @@ namespace TPSocios.Presentacion.Temas
             boton.FlatAppearance.MouseOverBackColor = tema.Acento;
         }
 
-        /// <summary>
-        /// La grilla necesita su propio juego de estilos de celda. Se desactivan
-        /// los estilos visuales del sistema porque, de lo contrario, el Windows
-        /// ignora los colores de la cabecera que acabamos de asignar.
-        /// </summary>
         private static void AplicarGrilla(DataGridView grilla, Tema tema)
         {
             grilla.EnableHeadersVisualStyles = false;

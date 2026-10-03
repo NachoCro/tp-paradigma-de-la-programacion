@@ -1,10 +1,5 @@
 namespace TPSocios.Entidades
 {
-    /// <summary>
-    /// Representa un socio del club. Mapea la tabla dbo.Socios.
-    /// Todas sus propiedades se encuentran encapsuladas: el estado interno
-    /// solo puede modificarse a través de los descriptores de acceso públicos.
-    /// </summary>
     public class Socio
     {
         private int _idSocio;
@@ -17,10 +12,6 @@ namespace TPSocios.Entidades
         private TipoSocio _tipoSocio;
         private bool _disponible;
 
-        /// <summary>
-        /// Constructor sin parámetros. Deja la instancia en un estado
-        /// vacío y válido, sin datos residuales de otras instancias.
-        /// </summary>
         public Socio()
         {
             this._idSocio = 0;
@@ -34,11 +25,6 @@ namespace TPSocios.Entidades
             this._disponible = false;
         }
 
-        /// <summary>
-        /// Constructor parametrizado.
-        /// La edad no se recibe ni se persiste: se obtiene calculada a partir
-        /// de la fecha de nacimiento, por eso no forma parte de los datos.
-        /// </summary>
         public Socio(int idSocio, string legajoSocio, string apellido, string nombre,
                      string email, DateTime fechaNacimiento, decimal cuotaMensual,
                      TipoSocio tipoSocio, bool disponible)
@@ -54,10 +40,6 @@ namespace TPSocios.Entidades
             this._disponible = disponible;
         }
 
-        /// <summary>
-        /// Identificador del socio en la base de datos.
-        /// Vale cero mientras el socio todavía no fue registrado.
-        /// </summary>
         public int IdSocio
         {
             get { return this._idSocio; }
@@ -106,20 +88,12 @@ namespace TPSocios.Entidades
             set { this._tipoSocio = value; }
         }
 
-        /// <summary>
-        /// Corresponde a la columna Activo de la tabla.
-        /// Indica que el socio se encuentra disponible para la práctica del deporte.
-        /// </summary>
         public bool Disponible
         {
             get { return this._disponible; }
             set { this._disponible = value; }
         }
 
-        /// <summary>
-        /// Propiedad de solo lectura: la edad no se almacena, se calcula
-        /// cada vez que se consulta a partir de la fecha de nacimiento.
-        /// </summary>
         public int Edad
         {
             get

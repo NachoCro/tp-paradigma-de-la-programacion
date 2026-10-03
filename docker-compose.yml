@@ -1,7 +1,7 @@
 # SQL Server para el trabajo práctico.
 #
 # Levanta la instancia en el puerto 1433 de localhost, que es exactamente lo
-# que dice la cadena de conexión de TPSocios/App.config.
+# que dice la cadena de conexión de TPSocios/Configuracion/CadenaConexion.cs.
 #
 # Para iniciarla:   docker compose up -d
 # Para detenerla:   docker compose down
@@ -9,7 +9,7 @@
 #
 # La contraseña del usuario sa debe ser igual en los dos lugares:
 #   - variable MSSQL_SA_PASSWORD (este archivo)
-#   - atributo Password de la cadena de conexión (App.config)
+#   - atributo Password de la cadena de conexión (CadenaConexion.cs)
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest

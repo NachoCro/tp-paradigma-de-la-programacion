@@ -1,4 +1,3 @@
-using System.Configuration;
 using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using TPSocios.Configuracion;
@@ -11,11 +10,6 @@ using TPSocios.Repositorios;
 
 namespace TPSocios
 {
-    /// <summary>
-    /// Verificaciones de la TP con datos ficticios, que no acceden a la base
-    /// de datos. Se ejecutan con: TPSocios.exe --pruebas
-    /// Si alguna falla, el proceso termina con un código de error distinto de cero.
-    /// </summary>
     internal static class Pruebas
     {
         private static int _fallos;
@@ -63,10 +57,6 @@ namespace TPSocios
             Console.WriteLine($"\n-- {titulo} --");
         }
 
-        /// <summary>
-        /// Verifica que el contenedor resuelva las dependencias declaradas
-        /// y que las dos implementaciones del repositorio respeten el contrato.
-        /// </summary>
         private static void ProbarInyeccionDeDependencias()
         {
             Seccion("Inyección de dependencias");
@@ -92,10 +82,6 @@ namespace TPSocios
                 LanzaNotImplemented(() => new SocioRepositoryCSV().ObtenerTodosAsync()));
         }
 
-        /// <summary>
-        /// Verifica que los nombres del enumerado coincidan con los valores
-        /// admitidos por la restricción de la base de datos.
-        /// </summary>
         private static void ProbarTipoSocio()
         {
             Seccion("Enumerado TipoSocio");
@@ -106,10 +92,6 @@ namespace TPSocios
             Verificar("Familiar -> \"Familiar\"", TipoSocio.Familiar.ToString() == "Familiar");
         }
 
-        /// <summary>
-        /// Verifica los dos constructores de la clase Socio, el encapsulamiento
-        /// de sus propiedades y el cálculo de la edad.
-        /// </summary>
         private static void ProbarSocio()
         {
             Seccion("Clase Socio");
@@ -148,9 +130,6 @@ namespace TPSocios
                           DateTime.Today.AddYears(-30).AddDays(1), 0m, TipoSocio.Mayor, false).Edad == 29);
         }
 
-        /// <summary>
-        /// Verifica los rangos de edad por tipo de socio y el formato del email.
-        /// </summary>
         private static void ProbarReglas()
         {
             Seccion("Reglas de negocio");
@@ -178,10 +157,6 @@ namespace TPSocios
             }
         }
 
-        /// <summary>
-        /// Verifica que el formulario se presente como pide el enunciado:
-        /// título, centrado, no maximizable y con los controles requeridos.
-        /// </summary>
         private static void ProbarFormulario()
         {
             Seccion("Formulario frmTPSocios");
@@ -206,7 +181,6 @@ namespace TPSocios
             Verificar("Existe btnRegistrar", Buscar("btnRegistrar") is Button);
             Verificar("Existe btnCancelar", Buscar("btnCancelar") is Button);
 
-            // La consigna 2.2 exige exactamente dos botones, con esos nombres.
             List<Button> botones = BotonesDe(f.Controls).ToList();
 
             Verificar("El formulario tiene solo dos botones (consigna 2.2)",
@@ -241,8 +215,6 @@ namespace TPSocios
             Verificar("Grilla sin eliminar filas", !grilla.AllowUserToDeleteRows);
             Verificar("Grilla de selección de una sola fila", !grilla.MultiSelect);
 
-            // Se invoca por fuera lo mismo que hace el evento Load,
-            // para no tener que conectar la base de datos.
             f.ConfigurarFormulario();
 
             DataGridViewColumn id = grilla.Columns["IdSocio"]!;
@@ -265,7 +237,6 @@ namespace TPSocios
                 cmb.DropDownStyle == ComboBoxStyle.DropDownList);
             Verificar("ComboBox con las cuatro opciones", cmb.Items.Count == 4);
             Verificar("Primera opción del ComboBox seleccionada", cmb.SelectedIndex == 0);
-            // Los textos deben ser los literales de la consigna 2.10.
             Verificar("Primera opción: \"Menor (< 18 años)\"",
                 cmb.Items[0] is ItemTipoSocio
                 {
@@ -301,10 +272,6 @@ namespace TPSocios
                 ((Button)Buscar("btnRegistrar")!).Text == "Registrar");
         }
 
-        /// <summary>
-        /// Verifica la validación de formulario con un alta correcta.
-        /// Solo se prueba el camino válido: el inválido presenta un MessageBox.
-        /// </summary>
         private static void ProbarValidacionFormulario()
         {
             Seccion("Validación de formulario");
@@ -316,8 +283,6 @@ namespace TPSocios
             f.Controls.Find("txtApellido", true)[0].Text = "Gómez";
             f.Controls.Find("txtNombre", true)[0].Text = "Ana";
             f.Controls.Find("txtEmail", true)[0].Text = "ana.gomez@email.com";
-            // El texto se arma con el formato de la configuración regional,
-            // para que la conversión a número no dependa del equipo.
             f.Controls.Find("txtCuotaMensual", true)[0].Text = 9500.50m.ToString("N2");
             ((DateTimePicker)f.Controls.Find("dtpFechaNacimiento", true)[0]).Value =
                 DateTime.Today.AddYears(-30);
@@ -335,11 +300,6 @@ namespace TPSocios
             Verificar("Disponible leído del CheckBox", socio.Disponible);
         }
 
-        /// <summary>
-        /// Comprueba que ningún control se monte sobre otro. Un arreglo de
-        /// diseño se nota mirando la ventana, pero un chequeo automático
-        /// avisa en el momento en que se rompe.
-        /// </summary>
         private static void ProbarLayoutSinSolapamientos()
         {
             Seccion("Layout sin solapamientos");
@@ -348,9 +308,6 @@ namespace TPSocios
             f.ConfigurarFormulario();
             f.CreateControl();
 
-            // Se comparan los controles entre sí solo cuando son hermanos. Un
-            // GroupBox sí contiene a sus campos, así que ellos sí se revisan
-            // entre sí, pero el GroupBox no se compara consigo mismo.
             List<string> choques = RevisarSolapamientos(f.Controls);
 
             Verificar("Ningún control se pisa con otro de la misma fila",
@@ -375,10 +332,6 @@ namespace TPSocios
                     > f.Controls.Find("btnRegistrar", true)[0].Bottom);
         }
 
-        /// <summary>
-        /// Devuelve todos los botones del formulario y de sus contenedores.
-        /// Sirve para comprobar que no haya más que los dos que pide la consigna.
-        /// </summary>
         private static IEnumerable<Button> BotonesDe(Control.ControlCollection controles)
         {
             foreach (Control control in controles)
@@ -395,11 +348,6 @@ namespace TPSocios
             }
         }
 
-        /// <summary>
-        /// Devuelve la lista de controles de un mismo nivel que se superponen.
-        /// Solo compara hermanos: un control jamás se compara con un ancestro
-        /// suyo, porque un GroupBox contiene a sus campos por definición.
-        /// </summary>
         private static List<string> RevisarSolapamientos(Control.ControlCollection controles)
         {
             List<string> choques = [];
@@ -434,8 +382,6 @@ namespace TPSocios
 
             foreach (Control control in controles)
             {
-                // La grilla se salta entera: su barra de desplazamiento y sus
-                // celdas se pisan a propósito.
                 if (control is DataGridView)
                 {
                     continue;
@@ -447,11 +393,6 @@ namespace TPSocios
             return choques;
         }
 
-        /// <summary>
-        /// Verifica que el botón único de guardado cambie de texto según el modo
-        /// en curso, para que el usuario sepa si va a dar de alta un socio nuevo
-        /// o a pisar los datos del socio que ya está en la grilla.
-        /// </summary>
         private static void ProbarBotonUnicoSegunElModo()
         {
             Seccion("Botón único de alta y modificación");
@@ -489,13 +430,6 @@ namespace TPSocios
                 $"texto='{registrar.Text}', apellido='{apellido.Text}'");
         }
 
-        /// <summary>
-        /// Verifica que la ventana abra en modo alta y no con un socio ya
-        /// cargado. Al agregar filas, la grilla fija sola su celda actual: si
-        /// esa selección automática se tomara por una elección del usuario, el
-        /// formulario abriría listo para modificar al primer socio de la lista
-        /// y la modificación escribiría sobre sus datos.
-        /// </summary>
         private static void ProbarAperturaEnModoAlta()
         {
             Seccion("Apertura en modo alta");
@@ -506,9 +440,6 @@ namespace TPSocios
                 new Socio(2, "B-0002", "Sosa", "Beto", "beto@email.com",
                     DateTime.Today.AddYears(-40), 8000m, TipoSocio.Familiar, false));
 
-            // Se abre la ventana de verdad, con su Load, su carga de datos y
-            // su primer dibujado: es la única forma de reproducir la selección
-            // automática que hace la grilla al poblarse.
             using frmTPSocios f = new frmTPSocios(repositorio);
             f.Show();
 
@@ -545,10 +476,6 @@ namespace TPSocios
             f.Hide();
         }
 
-        /// <summary>
-        /// Verifica que los dos temas retro se apliquen de verdad sobre los
-        /// controles y que el botón de alternancia los intercambie.
-        /// </summary>
         private static void ProbarTemas()
         {
             Seccion("Temas retro");
@@ -594,10 +521,6 @@ namespace TPSocios
             Verificar("Cambiar de nuevo vuelve al tema oscuro",
                 Temas.Alternar(f.TipoTemaActual) == TipoTema.Oscuro);
 
-            // Las fuentes de los temas viven durante toda la aplicación. Si el
-            // control guardara la instancia compartida y la liberara al
-            // cambiar de tema, el resto de la ventana quedaría con una fuente
-            // destruida.
             ExplosionTexto letras = (ExplosionTexto)f.Controls.Find("explosionErrores", true)[0];
 
             Verificar("La animación usa una copia propia de la fuente del tema",
@@ -618,12 +541,6 @@ namespace TPSocios
                 otra.TipoTemaActual == TipoTema.Oscuro);
         }
 
-        /// <summary>
-        /// Verifica la reacción ante un campo incorrecto: el mensaje animado,
-        /// el mensaje de ayuda que se esconde y la sacudida que devuelve el
-        /// control a su posición. Se bombea la cola de mensajes para que
-        /// corran los relojes de la explosión.
-        /// </summary>
         private static void ProbarAnimacionDeError()
         {
             Seccion("Animación de error");
@@ -631,8 +548,6 @@ namespace TPSocios
             using frmTPSocios f = new frmTPSocios(new SocioRepositoryCSV());
             f.ConfigurarFormulario();
 
-            // Los relojes de la animación necesitan que la ventana tenga
-            // ventana creada para poder avanzar.
             f.CreateControl();
 
             MaskedTextBox legajo = (MaskedTextBox)f.Controls.Find("mtxtLegajoSocio", true)[0];
@@ -652,8 +567,6 @@ namespace TPSocios
             Verificar("La ayuda se esconde mientras dura el error",
                 !ayuda.Visible);
 
-            // Se mide de verdad cuánto dura: si el resorte queda oscilando, el
-            // usuario tarda una eternidad en ver el motivo del error.
             Stopwatch reloj = Stopwatch.StartNew();
 
             DateTime limite = DateTime.UtcNow.AddSeconds(10);
@@ -672,8 +585,6 @@ namespace TPSocios
                 !f.AnimacionErrorEnCurso,
                 $"siguió corriendo {reloj.ElapsedMilliseconds}ms");
 
-            // El piso importa: si las letras se ordenaran en un solo paso el
-            // efecto no se vería y el MessageBox del error lo taparía de una.
             Verificar("La explosión dura lo suficiente para verse",
                 reloj.ElapsedMilliseconds >= 700,
                 $"duró {reloj.ElapsedMilliseconds}ms");
@@ -690,12 +601,6 @@ namespace TPSocios
                 legajo.Location == origen);
         }
 
-        /// <summary>
-        /// Verifica la configuración de la conexión y la clase Database.
-        /// Estas comprobaciones no abren ninguna conexión: solo validan que la
-        /// cadena de conexión esté bien formada y que la clase rechace las
-        /// entradas inválidas antes de intentar conectarse al servidor.
-        /// </summary>
         private static void ProbarAccesoADatos()
         {
             Seccion("Configuración y acceso a datos");
@@ -714,17 +619,12 @@ namespace TPSocios
             Verificar("La cadena de conexión ignora el certificado del servidor",
                 conexion.Contains("TrustServerCertificate=True", StringComparison.OrdinalIgnoreCase));
 
-            Verificar("La cadena de conexión no está vacía en App.config",
-                ConfigurationAppConfig().Length > 0);
-
             Verificar("Database rechaza una cadena de conexión vacía",
                 LanzaArgumento(() => new Database(string.Empty)));
 
             Verificar("Database acepta una cadena de conexión válida",
                 new Database(conexion) is not null);
 
-            // La consulta vacía se valida antes de abrir la conexión, así que
-            // esta prueba funciona aunque no haya ningún SQL Server en la máquina.
             Verificar("Database rechaza una consulta vacía",
                 LanzaArgumento(async () => await new Database(conexion).ConsultarAsync(" ")));
 
@@ -738,28 +638,6 @@ namespace TPSocios
                 new SocioRepositorySQL(conexion) is SocioRepositorySQL);
         }
 
-        /// <summary>
-        /// Lee directamente el App.config, sin pasar por la clase
-        /// CadenaConexion, para comprobar que el archivo se distribuyó
-        /// correctamente junto al ejecutable.
-        /// </summary>
-        private static string ConfigurationAppConfig()
-        {
-            try
-            {
-                return ConfigurationManager.ConnectionStrings[CadenaConexion.Nombre]?.ConnectionString
-                       ?? string.Empty;
-            }
-            catch (ConfigurationErrorsException)
-            {
-                return string.Empty;
-            }
-        }
-
-        /// <summary>
-        /// Indica si la operación lanza ArgumentException, que es el error que
-        /// produce la validación de los datos de entrada.
-        /// </summary>
         private static bool LanzaArgumento(Func<Task> accion)
         {
             try
@@ -786,10 +664,6 @@ namespace TPSocios
             }
         }
 
-        /// <summary>
-        /// Indica si la operación lanza NotImplementedException, es decir, si el
-        /// repositorio CSV fue construido sin desarrollar, como pide el enunciado.
-        /// </summary>
         private static bool LanzaNotImplemented(Action accion)
         {
             try
@@ -807,10 +681,6 @@ namespace TPSocios
             }
         }
 
-        /// <summary>
-        /// Repositorio que devuelve una lista fija, para poder abrir la ventana
-        /// de verdad en las pruebas sin tocar la base de datos.
-        /// </summary>
         private sealed class RepositorioDePrueba : ISocioRepository
         {
             private readonly List<Socio> _socios;

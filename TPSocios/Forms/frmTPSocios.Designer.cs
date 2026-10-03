@@ -41,9 +41,6 @@ namespace TPSocios.Forms
             this.gbxDatos.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvSocios)).BeginInit();
             this.SuspendLayout();
-            // 
-            // gbxDatos
-            // 
             this.gbxDatos.Controls.Add(this.chkDisponible);
             this.gbxDatos.Controls.Add(this.cmbTipoSocio);
             this.gbxDatos.Controls.Add(this.txtCuotaMensual);
@@ -65,26 +62,17 @@ namespace TPSocios.Forms
             this.gbxDatos.TabIndex = 0;
             this.gbxDatos.TabStop = false;
             this.gbxDatos.Text = "Datos del Socio";
-            // 
-            // lblLegajoSocio
-            // 
             this.lblLegajoSocio.AutoSize = true;
             this.lblLegajoSocio.Location = new System.Drawing.Point(20, 35);
             this.lblLegajoSocio.Name = "lblLegajoSocio";
             this.lblLegajoSocio.Size = new System.Drawing.Size(76, 15);
             this.lblLegajoSocio.TabIndex = 0;
             this.lblLegajoSocio.Text = "Legajo Socio:";
-            // 
-            // mtxtLegajoSocio
-            // 
             this.mtxtLegajoSocio.Location = new System.Drawing.Point(150, 32);
             this.mtxtLegajoSocio.Name = "mtxtLegajoSocio";
             this.mtxtLegajoSocio.Size = new System.Drawing.Size(120, 23);
             this.mtxtLegajoSocio.TabIndex = 1;
             this.mtxtLegajoSocio.Mask = "?\\-####";
-            // 
-            // lblApellido
-            // 
             this.lblApellido.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             this.lblApellido.AutoSize = true;
             this.lblApellido.Location = new System.Drawing.Point(300, 35);
@@ -92,35 +80,23 @@ namespace TPSocios.Forms
             this.lblApellido.Size = new System.Drawing.Size(60, 15);
             this.lblApellido.TabIndex = 2;
             this.lblApellido.Text = "Apellido:";
-            // 
-            // txtApellido
-            // 
             this.txtApellido.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             this.txtApellido.Location = new System.Drawing.Point(370, 32);
             this.txtApellido.MaxLength = 50;
             this.txtApellido.Name = "txtApellido";
             this.txtApellido.Size = new System.Drawing.Size(160, 23);
             this.txtApellido.TabIndex = 3;
-            // 
-            // lblNombre
-            // 
             this.lblNombre.AutoSize = true;
             this.lblNombre.Location = new System.Drawing.Point(20, 70);
             this.lblNombre.Name = "lblNombre";
             this.lblNombre.Size = new System.Drawing.Size(53, 15);
             this.lblNombre.TabIndex = 4;
             this.lblNombre.Text = "Nombre:";
-            // 
-            // txtNombre
-            // 
             this.txtNombre.Location = new System.Drawing.Point(150, 67);
             this.txtNombre.MaxLength = 50;
             this.txtNombre.Name = "txtNombre";
             this.txtNombre.Size = new System.Drawing.Size(120, 23);
             this.txtNombre.TabIndex = 5;
-            // 
-            // lblEmail
-            // 
             this.lblEmail.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             this.lblEmail.AutoSize = true;
             this.lblEmail.Location = new System.Drawing.Point(300, 70);
@@ -128,27 +104,18 @@ namespace TPSocios.Forms
             this.lblEmail.Size = new System.Drawing.Size(40, 15);
             this.lblEmail.TabIndex = 6;
             this.lblEmail.Text = "Email:";
-            // 
-            // txtEmail
-            // 
             this.txtEmail.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             this.txtEmail.Location = new System.Drawing.Point(370, 67);
             this.txtEmail.MaxLength = 100;
             this.txtEmail.Name = "txtEmail";
             this.txtEmail.Size = new System.Drawing.Size(160, 23);
             this.txtEmail.TabIndex = 7;
-            // 
-            // lblFechaNacimiento
-            // 
             this.lblFechaNacimiento.AutoSize = true;
             this.lblFechaNacimiento.Location = new System.Drawing.Point(20, 105);
             this.lblFechaNacimiento.Name = "lblFechaNacimiento";
             this.lblFechaNacimiento.Size = new System.Drawing.Size(113, 15);
             this.lblFechaNacimiento.TabIndex = 8;
             this.lblFechaNacimiento.Text = "Fecha de Nacimiento:";
-            // 
-            // dtpFechaNacimiento
-            // 
             this.dtpFechaNacimiento.Location = new System.Drawing.Point(150, 102);
             this.dtpFechaNacimiento.CustomFormat = "dd/MM/yyyy";
             this.dtpFechaNacimiento.Format = System.Windows.Forms.DateTimePickerFormat.Custom;
@@ -156,9 +123,6 @@ namespace TPSocios.Forms
             this.dtpFechaNacimiento.Name = "dtpFechaNacimiento";
             this.dtpFechaNacimiento.Size = new System.Drawing.Size(120, 23);
             this.dtpFechaNacimiento.TabIndex = 9;
-            // 
-            // lblCuotaMensual
-            // 
             this.lblCuotaMensual.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             this.lblCuotaMensual.AutoSize = true;
             this.lblCuotaMensual.Location = new System.Drawing.Point(300, 105);
@@ -166,27 +130,18 @@ namespace TPSocios.Forms
             this.lblCuotaMensual.Size = new System.Drawing.Size(96, 15);
             this.lblCuotaMensual.TabIndex = 10;
             this.lblCuotaMensual.Text = "Cuota Mensual:";
-            // 
-            // txtCuotaMensual
-            // 
             this.txtCuotaMensual.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             this.txtCuotaMensual.Location = new System.Drawing.Point(410, 102);
             this.txtCuotaMensual.Name = "txtCuotaMensual";
             this.txtCuotaMensual.Size = new System.Drawing.Size(120, 23);
             this.txtCuotaMensual.TabIndex = 11;
             this.txtCuotaMensual.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            // 
-            // cmbTipoSocio
-            // 
             this.cmbTipoSocio.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cmbTipoSocio.FormattingEnabled = true;
             this.cmbTipoSocio.Location = new System.Drawing.Point(150, 137);
             this.cmbTipoSocio.Name = "cmbTipoSocio";
             this.cmbTipoSocio.Size = new System.Drawing.Size(190, 23);
             this.cmbTipoSocio.TabIndex = 12;
-            // 
-            // chkDisponible
-            // 
             this.chkDisponible.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             this.chkDisponible.AutoSize = false;
             this.chkDisponible.Location = new System.Drawing.Point(348, 141);
@@ -196,9 +151,6 @@ namespace TPSocios.Forms
             this.chkDisponible.Text = "Disponible";
             this.chkDisponible.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.chkDisponible.UseVisualStyleBackColor = true;
-            // 
-            // dgvSocios
-            // 
             this.dgvSocios.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
             this.dgvSocios.AllowUserToAddRows = false;
             this.dgvSocios.AllowUserToDeleteRows = false;
@@ -213,9 +165,6 @@ namespace TPSocios.Forms
             this.dgvSocios.Size = new System.Drawing.Size(560, 188);
             this.dgvSocios.TabIndex = 14;
             this.dgvSocios.SelectionChanged += new System.EventHandler(this.dgvSocios_SelectionChanged);
-            // 
-            // lblAyuda
-            // 
             this.lblAyuda.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
             this.lblAyuda.AutoSize = false;
             this.lblAyuda.Location = new System.Drawing.Point(12, 534);
@@ -223,9 +172,6 @@ namespace TPSocios.Forms
             this.lblAyuda.Size = new System.Drawing.Size(330, 50);
             this.lblAyuda.TabIndex = 15;
             this.lblAyuda.Text = "Seleccione una fila para modificarla. Con la fila elegida, presione Supr para eliminarla.";
-            // 
-            // lblIntegrantes
-            // 
             this.lblIntegrantes.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
             this.lblIntegrantes.AutoSize = false;
             this.lblIntegrantes.Location = new System.Drawing.Point(12, 600);
@@ -234,17 +180,11 @@ namespace TPSocios.Forms
             this.lblIntegrantes.TabIndex = 20;
             this.lblIntegrantes.Text = "Integrantes: Fabricio Gullino - Ignacio Crocetti";
             this.lblIntegrantes.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // explosionErrores
-            // 
             this.explosionErrores.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
             this.explosionErrores.Location = new System.Drawing.Point(12, 466);
             this.explosionErrores.Name = "explosionErrores";
             this.explosionErrores.Size = new System.Drawing.Size(560, 60);
             this.explosionErrores.TabIndex = 19;
-            // 
-            // btnRegistrar
-            // 
             this.btnRegistrar.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
             this.btnRegistrar.Location = new System.Drawing.Point(428, 550);
             this.btnRegistrar.Name = "btnRegistrar";
@@ -253,9 +193,6 @@ namespace TPSocios.Forms
             this.btnRegistrar.Text = "Registrar";
             this.btnRegistrar.UseVisualStyleBackColor = true;
             this.btnRegistrar.Click += new System.EventHandler(this.btnRegistrar_Click);
-            // 
-            // btnCancelar
-            // 
             this.btnCancelar.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
             this.btnCancelar.Location = new System.Drawing.Point(502, 550);
             this.btnCancelar.Name = "btnCancelar";
@@ -264,9 +201,6 @@ namespace TPSocios.Forms
             this.btnCancelar.Text = "Cancelar";
             this.btnCancelar.UseVisualStyleBackColor = true;
             this.btnCancelar.Click += new System.EventHandler(this.btnCancelar_Click);
-            // 
-            // frmTPSocios
-            // 
             this.AcceptButton = this.btnRegistrar;
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
