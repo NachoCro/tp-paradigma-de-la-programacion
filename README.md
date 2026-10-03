@@ -159,7 +159,8 @@ TPSocios/
 │   └── frmTPSocios.Designer.cs
 └── Presentacion/
     ├── Animaciones/
-    │   ├── ExplosionTexto.cs
+    │   ├── TextoEscribiendo.cs    Mensaje que se escribe letra por letra
+    │   ├── BarraCarga.cs          Barra segmentada de progreso
     │   └── Sacudidor.cs
     └── Temas/
         ├── Tema.cs
