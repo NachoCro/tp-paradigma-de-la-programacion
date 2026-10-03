@@ -16,8 +16,12 @@ namespace TPSocios.Presentacion.Temas
         {
             switch (control)
             {
-                case ExplosionTexto explosion:
-                    explosion.AplicarTema(tema);
+                case TextoEscribiendo escritura:
+                    escritura.AplicarTema(tema);
+                    break;
+
+                case BarraCarga barra:
+                    barra.AplicarTema(tema);
                     break;
 
                 case DataGridView grilla:

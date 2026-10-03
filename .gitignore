@@ -21,6 +21,9 @@ vs_SSMS.exe
 *.exe
 !*.exe.config
 
+## Paquetes de entrega
+TP1-Socios-entrega.zip
+
 ## Sistema
 Thumbs.db
 desktop.ini

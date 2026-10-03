@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Drawing;
+using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using TPSocios.Configuracion;
 using TPSocios.Datos;
@@ -18,6 +20,7 @@ namespace TPSocios
         {
             _fallos = 0;
 
+            ProbarCamposDelDesigner();
             ProbarInyeccionDeDependencias();
             ProbarAccesoADatos();
             ProbarTipoSocio();
@@ -29,6 +32,9 @@ namespace TPSocios
             ProbarAperturaEnModoAlta();
             ProbarTemas();
             ProbarAnimacionDeError();
+            ProbarGuardarExitoso();
+            ProbarMensajeDeExitoPersistente();
+            ProbarBarraDeCarga();
             ProbarLayoutSinSolapamientos();
 
             Console.WriteLine(_fallos == 0
@@ -322,7 +328,7 @@ namespace TPSocios
                     < f.Controls.Find("btnCancelar", true)[0].Left);
 
             Verificar("La animación de error no tapa la grilla",
-                f.Controls.Find("explosionErrores", true)[0].Top
+                f.Controls.Find("mensajeErrores", true)[0].Top
                     > f.Controls.Find("dgvSocios", true)[0].Bottom);
 
             Verificar("Los integrantes quedan debajo de la ayuda y de los botones",
@@ -521,12 +527,12 @@ namespace TPSocios
             Verificar("Cambiar de nuevo vuelve al tema oscuro",
                 Temas.Alternar(f.TipoTemaActual) == TipoTema.Oscuro);
 
-            ExplosionTexto letras = (ExplosionTexto)f.Controls.Find("explosionErrores", true)[0];
+            TextoEscribiendo letras = (TextoEscribiendo)f.Controls.Find("mensajeErrores", true)[0];
 
             Verificar("La animación usa una copia propia de la fuente del tema",
                 letras.Fuente is not null
-                && !ReferenceEquals(letras.Fuente, Temas.Oscuro.FuenteTitulo)
-                && !ReferenceEquals(letras.Fuente, Temas.Claro.FuenteTitulo));
+                && !ReferenceEquals(letras.Fuente, Temas.Oscuro.FuenteDatos)
+                && !ReferenceEquals(letras.Fuente, Temas.Claro.FuenteDatos));
 
             using frmTPSocios otra = new frmTPSocios(new SocioRepositoryCSV());
             otra.ConfigurarFormulario();
@@ -543,7 +549,7 @@ namespace TPSocios
 
         private static void ProbarAnimacionDeError()
         {
-            Seccion("Animación de error");
+            Seccion("Escritura del mensaje de error");
 
             using frmTPSocios f = new frmTPSocios(new SocioRepositoryCSV());
             f.ConfigurarFormulario();
@@ -552,6 +558,8 @@ namespace TPSocios
 
             MaskedTextBox legajo = (MaskedTextBox)f.Controls.Find("mtxtLegajoSocio", true)[0];
             Label ayuda = (Label)f.Controls.Find("lblAyuda", true)[0];
+            TextoEscribiendo rotulo =
+                (TextoEscribiendo)f.Controls.Find("mensajeErrores", true)[0];
 
             Point origen = legajo.Location;
 
@@ -559,13 +567,22 @@ namespace TPSocios
 
             bool valido = f.ValidacionFormulario(out _);
 
+            string detalle =
+                "El legajo debe tener el formato L-0000: un carácter, un guion y cuatro dígitos.";
+
             Verificar("Un legajo incompleto se rechaza", !valido);
-            Verificar("La animación dice CAMPOS INCORRECTOS",
-                f.MensajeErrorAnimado == "CAMPOS INCORRECTOS");
-            Verificar("La explosión de letras arranca",
+            Verificar("El mensaje escrito es el detalle del error, no un rótulo genérico",
+                f.MensajeErrorAnimado == detalle);
+            Verificar("El error conserva el color del tema, no el verde del éxito",
+                rotulo.ColorTextoEnPantalla == rotulo.ColorTexto
+                && rotulo.ColorTextoEnPantalla != Color.FromArgb(57, 255, 20),
+                $"pinta {rotulo.ColorTextoEnPantalla}, tema {rotulo.ColorTexto}");
+            Verificar("La escritura arranca",
                 f.AnimacionErrorEnCurso);
-            Verificar("La ayuda se esconde mientras dura el error",
-                !ayuda.Visible);
+            Verificar("La escritura empieza sin mostrar el mensaje entero",
+                rotulo.CaracteresMostrados < detalle.Length);
+            Verificar("La ayuda conserva el texto original, no el error",
+                ayuda.Text.StartsWith("Seleccione una fila", StringComparison.Ordinal));
 
             Stopwatch reloj = Stopwatch.StartNew();
 
@@ -579,26 +596,392 @@ namespace TPSocios
 
             reloj.Stop();
 
-            Console.WriteLine($"        (duración medida: {reloj.ElapsedMilliseconds}ms, {f.PasosExplosion} pasos)");
+            Console.WriteLine($"        (duración medida: {reloj.ElapsedMilliseconds}ms, " +
+                              $"{f.PasosEscritura} pasos, {detalle.Length} caracteres)");
 
-            Verificar("La explosión de letras se detiene sola",
+            Verificar("La escritura se detiene sola",
                 !f.AnimacionErrorEnCurso,
                 $"siguió corriendo {reloj.ElapsedMilliseconds}ms");
 
-            Verificar("La explosión dura lo suficiente para verse",
+            Verificar("Al terminar muestra el mensaje completo",
+                rotulo.CaracteresMostrados == detalle.Length,
+                $"mostró {rotulo.CaracteresMostrados} de {detalle.Length}");
+
+            Verificar("La escritura avanza de a un carácter por paso",
+                f.PasosEscritura == detalle.Length,
+                $"{f.PasosEscritura} pasos para {detalle.Length} caracteres");
+
+            Verificar("La escritura dura lo suficiente para leerse",
                 reloj.ElapsedMilliseconds >= 700,
                 $"duró {reloj.ElapsedMilliseconds}ms");
 
-            Verificar("La explosión dura menos de 2 segundos",
-                reloj.ElapsedMilliseconds < 2000,
+            Verificar("La escritura dura menos de 4 segundos",
+                reloj.ElapsedMilliseconds < 4000,
                 $"tardó {reloj.ElapsedMilliseconds}ms");
 
-            Verificar("La explosión simula muchos pasos, no uno solo",
-                f.PasosExplosion > 20,
-                $"solo {f.PasosExplosion} pasos");
+            Verificar("El mensaje completo entra en la caja sin recortarse",
+                AnchoDe(rotulo, detalle) <= rotulo.Width,
+                $"{AnchoDe(rotulo, detalle):N0}px en {rotulo.Width}px");
 
             Verificar("El campo sacudido vuelve a su posición original",
                 legajo.Location == origen);
+        }
+
+        private static int AnchoDe(Control control, string texto)
+        {
+            using Graphics graficos = control.CreateGraphics();
+
+            Font fuente = control is TextoEscribiendo rotulo && rotulo.Fuente is not null
+                ? rotulo.Fuente
+                : control.Font;
+
+            return (int)Math.Ceiling(
+                graficos.MeasureString(texto, fuente, int.MaxValue, StringFormat.GenericTypographic).Width);
+        }
+
+        private static void ProbarGuardarExitoso()
+        {
+            Seccion("Guardar y rehabilitar el botón");
+
+            RepositorioDePrueba repositorio = new();
+
+            using frmTPSocios f = new frmTPSocios(repositorio);
+            f.ConfigurarFormulario();
+            f.CreateControl();
+
+            Verificar("El botón arranca habilitado",
+                f.BotonRegistrarHabilitado);
+
+            CompletarFormulario(f, "Z-9999");
+
+            Verificar("El primer alta termina", Esperar(f.GuardarAsync()));
+
+            Verificar("Después del primer alta el botón vuelve a estar habilitado",
+                f.BotonRegistrarHabilitado);
+
+            Verificar("Después del primer alta se escribe la frase de éxito",
+                f.MensajeErrorAnimado == "El socio fue registrado correctamente.",
+                $"mensaje: '{f.MensajeErrorAnimado}'");
+
+            Verificar("Después del primer alta la grilla trae al socio nuevo",
+                f.SociosCargados == 1, $"{f.SociosCargados} filas");
+
+            Verificar("Terminada la operación no queda ninguna carga en curso",
+                !f.CargaEnCurso);
+
+            CompletarFormulario(f, "Z-8888");
+
+            Stopwatch reloj = Stopwatch.StartNew();
+
+            bool segundo = Esperar(f.GuardarAsync());
+
+            reloj.Stop();
+
+            Verificar("El segundo alta termina", segundo);
+
+            Verificar("El botón también se rehabilita en el segundo alta",
+                f.BotonRegistrarHabilitado);
+
+            Verificar("El segundo alta también suma la fila a la grilla",
+                f.SociosCargados == 2, $"{f.SociosCargados} filas");
+
+            Verificar("La barra de carga se muestra el tiempo mínimo, aunque la base responda al toque",
+                reloj.ElapsedMilliseconds >= 700,
+                $"duró {reloj.ElapsedMilliseconds}ms");
+
+            Verificar("La barra de carga se apaga al terminar",
+                !f.CargaEnCurso);
+
+            Verificar("El botón queda habilitado y en modo Registrar",
+                f.BotonRegistrarHabilitado
+                && f.Controls.Find("btnRegistrar", true)[0].Text == "Registrar");
+        }
+
+        private static void ProbarCamposDelDesigner()
+        {
+            Seccion("Controles del Designer instanciados");
+
+            RepositorioDePrueba repositorio = new();
+            frmTPSocios? formulario = null;
+
+            try
+            {
+                formulario = new frmTPSocios(repositorio);
+                formulario.CreateControl();
+            }
+            catch (NullReferenceException)
+            {
+                Verificar(
+                    "Ningún control del Designer quedó sin instanciar",
+                    false,
+                    "InitializeComponent tira NullReferenceException: hay un 'campo.Propiedad =' "
+                    + "sin su 'campo = new ...()'");
+
+                return;
+            }
+
+            using frmTPSocios f = formulario;
+
+            List<string> sinInstanciar = new();
+
+            foreach (FieldInfo campo in typeof(frmTPSocios).GetFields(
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+            {
+                if (!typeof(Control).IsAssignableFrom(campo.FieldType))
+                {
+                    continue;
+                }
+
+                if (campo.GetValue(f) is null)
+                {
+                    sinInstanciar.Add(campo.Name);
+                }
+            }
+
+            Verificar("Ningún control del Designer quedó sin instanciar",
+                sinInstanciar.Count == 0,
+                $"nulos: {string.Join(", ", sinInstanciar)}");
+
+            Verificar("Los controles propios también están en la jerarquía",
+                f.Controls.Find("mensajeErrores", true).Length == 1
+                && f.Controls.Find("pbOperacion", true).Length == 1,
+                $"mensajeErrores={f.Controls.Find("mensajeErrores", true).Length}, " +
+                $"pbOperacion={f.Controls.Find("pbOperacion", true).Length}");
+        }
+
+        private static void ProbarMensajeDeExitoPersistente()
+        {
+            Seccion("El mensaje de éxito no se borra");
+
+            RepositorioDePrueba repositorio = new();
+
+            using frmTPSocios f = new frmTPSocios(repositorio);
+            f.ConfigurarFormulario();
+            f.Show();
+
+            for (int i = 0; i < 5; i++)
+            {
+                Application.DoEvents();
+            }
+
+            CompletarFormulario(f, "Z-7777");
+
+            Verificar("El alta termina", Esperar(f.GuardarAsync()));
+
+            Verificar("El mensaje de éxito queda en pantalla", f.MensajeEnPantalla);
+
+            for (int i = 0; i < 20; i++)
+            {
+                Application.DoEvents();
+            }
+
+            Verificar("El mensaje sobrevive al refresco de la grilla",
+                f.MensajeEnPantalla,
+                "AlMostrarLaVentana lo estaba borrando");
+
+            Verificar("El texto sigue siendo la frase de éxito",
+                f.MensajeErrorAnimado == "El socio fue registrado correctamente.",
+                $"mensaje: '{f.MensajeErrorAnimado}'");
+
+            TextoEscribiendo rotulo =
+                (TextoEscribiendo)f.Controls.Find("mensajeErrores", true)[0];
+
+            Verificar("El mensaje de éxito se escribe en verde",
+                rotulo.ColorTextoEnPantalla == Color.FromArgb(57, 255, 20),
+                rotulo.ColorTextoEnPantalla.ToString());
+
+            int tonoInicial = rotulo.TonoBorde;
+
+            for (int i = 0; i < 5; i++)
+            {
+                rotulo.AvanzarBorde();
+            }
+
+            Verificar("El borde arcoiris va cambiando de tono",
+                rotulo.TonoBorde == tonoInicial + 20,
+                $"tono {tonoInicial} -> {rotulo.TonoBorde}");
+
+            Verificar("El marco sigue girando aunque ya se terminó de escribir",
+                rotulo.BordeActivo);
+
+            for (int i = 0; i < 89; i++)
+            {
+                rotulo.AvanzarBorde();
+            }
+
+            Verificar("El tono da la vuelta completa sin desbordarse",
+                rotulo.TonoBorde == (tonoInicial + (94 * 4)) % 360
+                && rotulo.TonoBorde >= 0
+                && rotulo.TonoBorde < 360,
+                $"tono final {rotulo.TonoBorde}");
+
+            Verificar("El tono 0 es rojo puro",
+                TextoEscribiendo.TonoAColor(0, 255, 255) == Color.FromArgb(255, 0, 0),
+                TextoEscribiendo.TonoAColor(0, 255, 255).ToString());
+
+            Verificar("El tono 120 es verde puro",
+                TextoEscribiendo.TonoAColor(120, 255, 255) == Color.FromArgb(0, 255, 0),
+                TextoEscribiendo.TonoAColor(120, 255, 255).ToString());
+
+            Verificar("El tono 240 es azul puro",
+                TextoEscribiendo.TonoAColor(240, 255, 255) == Color.FromArgb(0, 0, 255),
+                TextoEscribiendo.TonoAColor(240, 255, 255).ToString());
+
+            Verificar("Con la saturación del marco el rojo sale lavado",
+                TextoEscribiendo.TonoAColor(0, 220, 255) == Color.FromArgb(255, 35, 35),
+                TextoEscribiendo.TonoAColor(0, 220, 255).ToString());
+
+            bool arcoirisValido = true;
+            string tonoProblematico = string.Empty;
+
+            for (int tono = 0; tono < 360; tono++)
+            {
+                try
+                {
+                    Color color = TextoEscribiendo.TonoAColor(tono, 220, 255);
+
+                    if (color.R == 0 && color.G == 0 && color.B == 0)
+                    {
+                        arcoirisValido = false;
+                        tonoProblematico = $"{tono} salió negro";
+                        break;
+                    }
+                }
+                catch (Exception excepcion)
+                {
+                    arcoirisValido = false;
+                    tonoProblematico = $"tono {tono}: {excepcion.GetType().Name} {excepcion.Message}";
+                    break;
+                }
+            }
+
+            Verificar("Los 360 tonos del arcoiris dan un color válido",
+                arcoirisValido, tonoProblematico);
+
+            bool pintoSinReventar = true;
+            string falloPintado = string.Empty;
+            int pintados = 0;
+
+            using (Bitmap lienzo = new(rotulo.Width, rotulo.Height))
+            using (Graphics graficos = Graphics.FromImage(lienzo))
+            {
+                MethodInfo? onPaint = typeof(Control).GetMethod(
+                    "OnPaint",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+
+                for (int tono = 0; tono < 360; tono++)
+                {
+                    rotulo.TonoBorde = tono;
+
+                    try
+                    {
+                        graficos.Clear(rotulo.BackColor);
+                        onPaint!.Invoke(
+                            rotulo,
+                            [new PaintEventArgs(graficos, new Rectangle(Point.Empty, lienzo.Size))]);
+
+                        pintados++;
+                    }
+                    catch (TargetInvocationException envoltura)
+                    {
+                        Exception real = envoltura.InnerException ?? envoltura;
+
+                        pintoSinReventar = false;
+                        falloPintado = $"tono {tono}: {real.GetType().Name} {real.Message}";
+                        break;
+                    }
+                }
+            }
+
+            Verificar("El marco se pinta en los 360 tonos sin tirar excepción",
+                pintoSinReventar, falloPintado);
+
+            Verificar("El bucle de pintado llegó a ejecutarse de verdad",
+                pintados == 360, $"pintados {pintados} de 360");
+
+            rotulo.TonoBorde = 0;
+
+            f.Hide();
+        }
+
+        private static void ProbarBarraDeCarga()
+        {
+            Seccion("Barra de carga segmentada");
+
+            RepositorioDePrueba repositorio = new();
+
+            using frmTPSocios f = new frmTPSocios(repositorio);
+            f.ConfigurarFormulario();
+            f.CreateControl();
+
+            BarraCarga barra = (BarraCarga)f.Controls.Find("pbOperacion", true)[0];
+
+            Verificar("La barra arranca vacía", barra.Valor == 0, $"{barra.Valor}%");
+
+            barra.Valor = 100;
+            Verificar("La barra llega al 100%", barra.Valor == 100);
+
+            Verificar("Al completarse se pintan los 26 segmentos",
+                barra.SegmentosPintados == 26, $"{barra.SegmentosPintados} segmentos");
+
+            barra.Valor = 50;
+            Verificar("En la mitad se pintan 13 segmentos",
+                barra.SegmentosPintados == 13, $"{barra.SegmentosPintados} segmentos");
+
+            barra.Valor = 500;
+            Verificar("La barra no pasa del 100%", barra.Valor == 100);
+
+            barra.Valor = -20;
+            Verificar("La barra no baja de cero", barra.Valor == 0);
+
+            barra.Valor = 0;
+
+            CompletarFormulario(f, "Z-6666");
+
+            Task guardado = f.GuardarAsync();
+
+            int maximo = 0;
+
+            while (!guardado.IsCompleted)
+            {
+                maximo = Math.Max(maximo, barra.Valor);
+
+                Application.DoEvents();
+                Thread.Sleep(20);
+            }
+
+            Verificar("El alta termina", Esperar(guardado));
+
+            Verificar("Durante el alta la barra se completa de verdad",
+                maximo == 100, $"máximo alcanzado {maximo}%");
+
+            f.Hide();
+        }
+
+        private static bool Esperar(Task tarea, int segundos = 10)
+        {
+            DateTime limite = DateTime.UtcNow.AddSeconds(segundos);
+
+            while (!tarea.IsCompleted && DateTime.UtcNow < limite)
+            {
+                Application.DoEvents();
+                Thread.Sleep(5);
+            }
+
+            return tarea.IsCompleted;
+        }
+
+        private static void CompletarFormulario(frmTPSocios f, string legajo)
+        {
+            ((MaskedTextBox)f.Controls.Find("mtxtLegajoSocio", true)[0]).Text = legajo;
+            ((TextBox)f.Controls.Find("txtApellido", true)[0]).Text = "Prueba";
+            ((TextBox)f.Controls.Find("txtNombre", true)[0]).Text = "Temporal";
+            ((TextBox)f.Controls.Find("txtEmail", true)[0]).Text = "prueba@temporal.com";
+            ((TextBox)f.Controls.Find("txtCuotaMensual", true)[0]).Text = "1500";
+            ((ComboBox)f.Controls.Find("cmbTipoSocio", true)[0]).SelectedIndex = 1;
+            ((DateTimePicker)f.Controls.Find("dtpFechaNacimiento", true)[0]).Value =
+                new DateTime(1990, 5, 10);
+            ((CheckBox)f.Controls.Find("chkDisponible", true)[0]).Checked = true;
         }
 
         private static void ProbarAccesoADatos()
@@ -697,17 +1080,32 @@ namespace TPSocios
 
             public Task<int> InsertarAsync(Socio socio, CancellationToken cancellationToken = default)
             {
-                throw new NotSupportedException();
+                int id = this._socios.Count == 0 ? 1 : this._socios.Max(s => s.IdSocio) + 1;
+
+                socio.IdSocio = id;
+
+                this._socios.Add(socio);
+
+                return Task.FromResult(id);
             }
 
             public Task ActualizarAsync(Socio socio, CancellationToken cancellationToken = default)
             {
-                throw new NotSupportedException();
+                int indice = this._socios.FindIndex(s => s.IdSocio == socio.IdSocio);
+
+                if (indice >= 0)
+                {
+                    this._socios[indice] = socio;
+                }
+
+                return Task.CompletedTask;
             }
 
             public Task EliminarAsync(int idSocio, CancellationToken cancellationToken = default)
             {
-                throw new NotSupportedException();
+                this._socios.RemoveAll(s => s.IdSocio == idSocio);
+
+                return Task.CompletedTask;
             }
 
             public Task<bool> ExisteLegajoAsync(string legajoSocio, int idSocioExcluir = 0,

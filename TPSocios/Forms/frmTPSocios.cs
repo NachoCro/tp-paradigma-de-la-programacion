@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using TPSocios.Entidades;
 using TPSocios.Presentacion.Animaciones;
 using TPSocios.Presentacion.Temas;
@@ -8,9 +9,14 @@ namespace TPSocios.Forms
     public partial class frmTPSocios : Form
     {
         private const string TituloVentana = "Club Social Deportivo";
-        private const string TextoCamposIncorrectos = "CAMPOS INCORRECTOS";
         private const string TextoBotonRegistrar = "Registrar";
         private const string TextoBotonActualizar = "Actualizar";
+        private const string ExitoAlta = "El socio fue registrado correctamente.";
+        private const string ExitoBaja = "El socio fue eliminado correctamente.";
+        private const string ExitoActualizacion = "Los datos del socio fueron actualizados correctamente.";
+        private const int CargaMinimaMs = 700;
+
+        private static readonly Color ColorExito = Color.FromArgb(57, 255, 20);
 
         private readonly ISocioRepository _socioRepository;
         private List<Socio> _sociosCargados;
@@ -18,21 +24,25 @@ namespace TPSocios.Forms
 
         private bool _ignorandoSeleccionInicial = true;
 
+        private bool _operacionEnCurso;
+
+        private bool _cargaEnCurso;
+
         private TipoTema _tipoTema = TipoTema.Oscuro;
-
-        private string? _mensajeErrorPendiente;
-
-        private Control? _controlErrorPendiente;
-
-        private Task _animacionErrorEnCurso = Task.CompletedTask;
 
         internal TipoTema TipoTemaActual => this._tipoTema;
 
-        internal string MensajeErrorAnimado => this.explosionErrores.Mensaje;
+        internal string MensajeErrorAnimado => this.mensajeErrores.Mensaje;
 
-        internal bool AnimacionErrorEnCurso => this.explosionErrores.AnimacionEnCurso;
+        internal bool AnimacionErrorEnCurso => this.mensajeErrores.EscrituraEnCurso;
 
-        internal int PasosExplosion => this.explosionErrores.PasosSimulados;
+        internal int PasosEscritura => this.mensajeErrores.PasosSimulados;
+
+        internal bool CargaEnCurso => this._cargaEnCurso;
+
+        internal bool MensajeEnPantalla => this.mensajeErrores.BordeActivo;
+
+        internal bool BotonRegistrarHabilitado => this.btnRegistrar.Enabled;
 
         public frmTPSocios(ISocioRepository socioRepository)
         {
@@ -227,6 +237,7 @@ namespace TPSocios.Forms
             bool alta = this._socioEnEdicion is null;
 
             this.btnRegistrar.Text = alta ? TextoBotonRegistrar : TextoBotonActualizar;
+            this.btnRegistrar.Enabled = !this._operacionEnCurso;
         }
 
         private void ProgramarHabilitarSeleccion()
@@ -253,7 +264,7 @@ namespace TPSocios.Forms
 
             this._ignorandoSeleccionInicial = false;
 
-            this.PrepararAlta();
+            this.PrepararAlta(limpiarMensaje: false);
         }
 
         private async void frmTPSocios_KeyDown(object sender, KeyEventArgs e)
@@ -304,14 +315,17 @@ namespace TPSocios.Forms
                 return;
             }
 
-            this.btnRegistrar.Enabled = false;
+            this._operacionEnCurso = true;
+            this.BotonesSegunElModo();
 
             try
             {
-                await this._socioRepository.EliminarAsync(socio.IdSocio);
+                await this.ConCargaAsync(() => this._socioRepository.EliminarAsync(socio.IdSocio));
 
                 this.PrepararAlta();
                 await this.CargarGrillaAsync();
+
+                this.mensajeErrores.Escribir(ExitoBaja, ColorExito);
             }
             catch (Exception excepcion)
             {
@@ -319,7 +333,48 @@ namespace TPSocios.Forms
             }
             finally
             {
+                this._operacionEnCurso = false;
                 this.BotonesSegunElModo();
+            }
+        }
+
+        private async Task ConCargaAsync(Func<Task> operacion)
+        {
+            this._cargaEnCurso = true;
+            this.pbOperacion.Valor = 0;
+            this.pbOperacion.Visible = true;
+
+            using System.Windows.Forms.Timer reloj = new() { Interval = 25 };
+
+            Stopwatch cronometro = Stopwatch.StartNew();
+
+            reloj.Tick += (_, _) => this.pbOperacion.Valor =
+                (int)Math.Clamp(cronometro.ElapsedMilliseconds * 100 / CargaMinimaMs, 0, 100);
+
+            reloj.Start();
+
+            try
+            {
+                await operacion();
+
+                int restante = CargaMinimaMs - (int)cronometro.ElapsedMilliseconds;
+
+                if (restante > 0)
+                {
+                    await Task.Delay(restante);
+                }
+
+                this.pbOperacion.Valor = 100;
+            }
+            finally
+            {
+                reloj.Stop();
+                cronometro.Stop();
+
+                await Task.Delay(140);
+
+                this._cargaEnCurso = false;
+                this.pbOperacion.Visible = false;
             }
         }
 
@@ -328,43 +383,44 @@ namespace TPSocios.Forms
             await this.GuardarAsync();
         }
 
-        private async Task GuardarAsync()
+        internal async Task GuardarAsync()
         {
             bool esModificacion = this._socioEnEdicion is not null;
 
             if (!this.ValidacionFormulario(out Socio socio))
             {
-                await this.MostrarDetalleErrorAsync();
                 return;
             }
 
             if (!await this.ValidacionReglas(socio))
             {
-                await this.MostrarDetalleErrorAsync();
                 return;
             }
 
-            this.btnRegistrar.Enabled = false;
+            this._operacionEnCurso = true;
+            this.BotonesSegunElModo();
 
             try
             {
+                string exito;
+
                 if (esModificacion)
                 {
-                    await this._socioRepository.ActualizarAsync(socio);
+                    await this.ConCargaAsync(() => this._socioRepository.ActualizarAsync(socio));
 
-                    MessageBox.Show("Los datos del socio fueron actualizados correctamente.",
-                                    TituloVentana, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    exito = ExitoActualizacion;
                 }
                 else
                 {
-                    await this._socioRepository.InsertarAsync(socio);
+                    await this.ConCargaAsync(() => this._socioRepository.InsertarAsync(socio));
 
-                    MessageBox.Show("El socio fue registrado correctamente.",
-                                    TituloVentana, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    exito = ExitoAlta;
                 }
 
                 this.PrepararAlta();
                 await this.CargarGrillaAsync();
+
+                this.mensajeErrores.Escribir(exito, ColorExito);
             }
             catch (Exception excepcion)
             {
@@ -373,6 +429,7 @@ namespace TPSocios.Forms
             }
             finally
             {
+                this._operacionEnCurso = false;
                 this.BotonesSegunElModo();
             }
         }
@@ -382,11 +439,15 @@ namespace TPSocios.Forms
             this.PrepararAlta();
         }
 
-        internal void PrepararAlta()
+        internal void PrepararAlta(bool limpiarMensaje = true)
         {
             this._socioEnEdicion = null;
 
-            this.explosionErrores.Ocultar();
+            if (limpiarMensaje)
+            {
+                this.mensajeErrores.Ocultar();
+            }
+
             this.lblAyuda.Visible = true;
 
             this.mtxtLegajoSocio.Clear();
@@ -558,43 +619,16 @@ namespace TPSocios.Forms
 
         private bool MarcarError(Control control, string mensaje)
         {
-            this._mensajeErrorPendiente = mensaje;
-            this._controlErrorPendiente = control;
-
             Sacudidor.Sacudir(control);
-            this._animacionErrorEnCurso = this.ExplorarCamposAsync();
+
+            this.mensajeErrores.Escribir(mensaje);
+
+            control.Focus();
 
             return false;
         }
 
-        private async Task ExplorarCamposAsync()
-        {
-            this.lblAyuda.Visible = false;
-
-            await this.explosionErrores.ExplotarAsync(TextoCamposIncorrectos);
-        }
-
-        private async Task MostrarDetalleErrorAsync()
-        {
-            await this._animacionErrorEnCurso;
-
-            string? mensaje = this._mensajeErrorPendiente;
-            Control? control = this._controlErrorPendiente;
-
-            this._mensajeErrorPendiente = null;
-            this._controlErrorPendiente = null;
-
-            if (mensaje is null)
-            {
-                return;
-            }
-
-            MessageBox.Show(mensaje, "Datos inválidos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-
-            control?.Focus();
-        }
-
-        private void MostrarErrorBase(Exception excepcion, string mensaje)
+private void MostrarErrorBase(Exception excepcion, string mensaje)
         {
             MessageBox.Show(
                 $"{mensaje}\n\nDetalle: {excepcion.Message}",
